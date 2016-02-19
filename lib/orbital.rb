@@ -16,6 +16,8 @@ require 'yaml'
 require 'killbill'
 require 'killbill/helpers/active_merchant'
 
+require 'orbital/ext/active_merchant/active_merchant.rb'
+
 require 'orbital/api'
 require 'orbital/private_api'
 

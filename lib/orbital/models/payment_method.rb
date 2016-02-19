@@ -12,9 +12,7 @@ module Killbill #:nodoc:
               response,
               options,
               {
-                  # Pass custom key/values here
-                  #:params_id => extract(response, 'id'),
-                  #:params_card_id => extract(response, 'card', 'id')
+                :cc_number => extract(response, 'cc_account_num'),
               }.merge!(extra_params),
               model)
       end

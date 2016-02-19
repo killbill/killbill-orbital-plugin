@@ -18,7 +18,7 @@ describe Killbill::Orbital::PaymentPlugin do
     @call_context = build_call_context
 
     @properties = []
-    @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties)
+    @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, { :cc_number => '5454545454545454' })
     @amount     = BigDecimal.new('100')
     @currency   = 'USD'
 
@@ -33,7 +33,8 @@ describe Killbill::Orbital::PaymentPlugin do
   end
 
   it 'should be able to charge a Credit Card directly' do
-    properties = build_pm_properties
+    account = @plugin.kb_apis.account_user_api.get_account_by_id(nil, @call_context)
+    properties = build_pm_properties(account, { :cc_number => '5454545454545454' })
 
     # We created the payment method, hence the rows
     Killbill::Orbital::OrbitalResponse.all.size.should == 1
@@ -47,9 +48,9 @@ describe Killbill::Orbital::PaymentPlugin do
     responses = Killbill::Orbital::OrbitalResponse.all
     responses.size.should == 2
     responses[0].api_call.should == 'add_payment_method'
-    responses[0].message.should == 'Successful transaction'
+    responses[0].message.should == 'Profile Request Processed'
     responses[1].api_call.should == 'purchase'
-    responses[1].message.should == 'Successful transaction'
+    responses[1].message.should == 'Approved'
     transactions = Killbill::Orbital::OrbitalTransaction.all
     transactions.size.should == 1
     transactions[0].api_call.should == 'purchase'
