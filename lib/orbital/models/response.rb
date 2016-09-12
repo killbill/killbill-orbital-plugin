@@ -79,6 +79,18 @@ module Killbill #:nodoc:
           :params_tx_ref_num => extract(response, 'tx_ref_num'),
         }
       end
+
+      def first_reference_id
+        params_tx_ref_num
+      end
+
+      def second_reference_id
+        params_order_id
+      end
+
+      def gateway_error_code
+        params_resp_code
+      end
     end
   end
 end
