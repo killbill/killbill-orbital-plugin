@@ -2,26 +2,8 @@ require 'spec_helper'
 
 ActiveMerchant::Billing::Base.mode = :test
 
-describe Killbill::Orbital::PaymentPlugin do
-
-  include ::Killbill::Plugin::ActiveMerchant::RSpec
-
+shared_examples 'common_specs' do
   before(:each) do
-    # Start the plugin early to configure ActiveRecord
-    @plugin = build_plugin(::Killbill::Orbital::PaymentPlugin, 'orbital')
-    @plugin.start_plugin
-
-    ::Killbill::Orbital::OrbitalPaymentMethod.delete_all
-    ::Killbill::Orbital::OrbitalResponse.delete_all
-    ::Killbill::Orbital::OrbitalTransaction.delete_all
-
-    @call_context = build_call_context
-
-    @properties = []
-    @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, { :cc_number => '5454545454545454' })
-    @amount     = BigDecimal.new('100')
-    @currency   = 'USD'
-
     kb_payment_id = SecureRandom.uuid
     1.upto(6) do
       @kb_payment = @plugin.kb_apis.proxied_services[:payment_api].add_payment(kb_payment_id)
@@ -32,15 +14,11 @@ describe Killbill::Orbital::PaymentPlugin do
     @plugin.stop_plugin
   end
 
-  it 'should be able to charge a Credit Card directly' do
-    account = @plugin.kb_apis.account_user_api.get_account_by_id(nil, @call_context)
-    properties = build_pm_properties(account, { :cc_number => '5454545454545454' })
-
-    # We created the payment method, hence the rows
+  it 'should be able to purchase' do
     Killbill::Orbital::OrbitalResponse.all.size.should == 1
     Killbill::Orbital::OrbitalTransaction.all.size.should == 0
 
-    payment_response = @plugin.purchase_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, properties, @call_context)
+    payment_response = @plugin.purchase_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :PURCHASE
@@ -123,5 +101,45 @@ describe Killbill::Orbital::PaymentPlugin do
     payment_response = @plugin.void_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[2].id, @pm.kb_payment_method_id, @properties, @call_context)
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.transaction_type.should == :VOID
+  end
+end
+
+describe Killbill::Orbital::PaymentPlugin do
+
+  include ::Killbill::Plugin::ActiveMerchant::RSpec
+
+  before(:each) do
+    # Start the plugin early to configure ActiveRecord
+    @plugin = build_plugin(::Killbill::Orbital::PaymentPlugin, 'orbital')
+    @plugin.start_plugin
+
+    ::Killbill::Orbital::OrbitalPaymentMethod.delete_all
+    ::Killbill::Orbital::OrbitalResponse.delete_all
+    ::Killbill::Orbital::OrbitalTransaction.delete_all
+
+    @call_context = build_call_context
+    @account = @plugin.kb_apis.account_user_api.get_account_by_id(nil, @call_context)
+  end
+
+  context 'credit card flow' do
+    before(:each) do
+      @properties = build_pm_properties(@account, { :cc_number => '5454545454545454' })
+      @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, {})
+      @amount     = BigDecimal.new('100')
+      @currency   = 'USD'
+    end
+
+    include_examples 'common_specs'
+  end
+
+  context 'custom profile flow' do
+    before(:each) do
+      @properties = []
+      @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, { :cc_number => '5454545454545454' })
+      @amount     = BigDecimal.new('100')
+      @currency   = 'USD'
+    end
+
+    include_examples 'common_specs'
   end
 end
