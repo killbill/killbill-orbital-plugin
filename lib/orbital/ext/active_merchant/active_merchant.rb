@@ -6,9 +6,15 @@ module ActiveMerchant
     class OrbitalGateway
 
       def store(creditcard, options = {})
-        add_customer_profile(creditcard, options)
-      end
+        response = add_customer_profile(creditcard, options)
 
+        # Workaround: unmask the PAN if needed
+        # TODO We could call on-the-fly retrieve_customer_profile instead in PaymentPlugin#get_payment_source to
+        # avoid having to store the PAN, but this requires a specific merchant account setting
+        response.params['cc_account_num'] = creditcard.number if response.params['cc_account_num'].starts_with?('XXXX')
+
+        response
+      end
 
       def user_agent
         @@ua ||= JSON.dump({
