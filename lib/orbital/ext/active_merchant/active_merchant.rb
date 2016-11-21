@@ -53,6 +53,26 @@ module ActiveMerchant
                          :cvv_result => OrbitalGateway::CVVResult.new(response[:cvv2_resp_code])
                      })
       end
+
+      def add_creditcard(xml, creditcard, currency=nil)
+        unless creditcard.nil?
+          xml.tag! :AccountNum, creditcard.number
+          xml.tag! :Exp, expiry_date(creditcard)
+        end
+
+        xml.tag! :CurrencyCode, currency_code(currency)
+        xml.tag! :CurrencyExponent, currency_exponents(currency)
+
+        # Do not include the CardSecValInd if verification_value is not present because CC flow does not try to collect this information
+        # - http://download.chasepaymentech.com/docs/orbital/orbital_gateway_xml_specification.pdf
+        unless creditcard.nil?
+          if %w( visa discover ).include?(creditcard.brand)
+            xml.tag! :CardSecValInd, '1' if creditcard.verification_value?
+          end
+          xml.tag! :CardSecVal,  creditcard.verification_value if creditcard.verification_value?
+        end
+      end
+
     end
   end
 end
