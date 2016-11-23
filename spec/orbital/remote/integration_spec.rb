@@ -129,6 +129,16 @@ shared_examples 'cvv_indicator_specs' do
     validate_cvv_indicator_field 9
   end
 
+  it 'should set customized indicator for visa and discover if cvv value is not present and cvv_indicator_visa_discover is true and cvv_indicator_override_visa_discover is given' do
+    @properties = build_pm_properties(nil, { :cc_number => '5454545454545454', :cvv_indicator_visa_discover => true, :cvv_indicator_override_visa_discover => '2' })
+    @properties.reject! {|property| property.key == 'ccVerificationValue' }
+    validate_cvv_indicator_field 2
+
+    @properties = build_pm_properties(nil, { :cc_number => '5454545454545454', :cc_type => 'discover', :cvv_indicator_visa_discover => true, :cvv_indicator_override_visa_discover => '2' })
+    @properties.reject! {|property| property.key == 'ccVerificationValue' }
+    validate_cvv_indicator_field 2
+  end
+
   it 'should set correct indicator for visa and discover if cvv value is not present and cvv_indicator_visa_discover is nil or false' do
     @properties = build_pm_properties(nil, { :cc_number => '5454545454545454'})
     @properties.reject! {|property| property.key == 'ccVerificationValue' }
