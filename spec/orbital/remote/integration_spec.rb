@@ -107,13 +107,11 @@ shared_examples 'cvv_indicator_specs' do
   end
 
   it 'should set correct indicator for visa and discover if cvv value is present regardless of cvv_indicator_visa_discover' do
-    # The default card type is visa
     validate_cvv_indicator_field 1
 
     @properties = build_pm_properties(nil, { :cc_number => '5454545454545454', :cc_type => 'discover' })
     validate_cvv_indicator_field 1
 
-    # The default card type is visa
     @properties = build_pm_properties(nil, { :cc_number => '5454545454545454', :cvv_indicator_visa_discover => true })
     validate_cvv_indicator_field 1
 
