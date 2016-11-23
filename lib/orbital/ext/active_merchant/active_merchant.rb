@@ -60,7 +60,33 @@ module ActiveMerchant
                      })
       end
 
-      def add_creditcard(xml, creditcard, currency=nil)
+      # A – Authorization request
+      def authorize(money, creditcard, options = {})
+        order = build_new_order_xml(AUTH_ONLY, money, options) do |xml|
+          add_creditcard(xml, creditcard, options[:currency], options[:cvv_indicator_visa_discover])
+          add_address(xml, creditcard, options)
+          if @options[:customer_profiles]
+            add_customer_data(xml, creditcard, options)
+            add_managed_billing(xml, options)
+          end
+        end
+        commit(order, :authorize, options[:trace_number])
+      end
+
+      # AC – Authorization and Capture
+      def purchase(money, creditcard, options = {})
+        order = build_new_order_xml(AUTH_AND_CAPTURE, money, options) do |xml|
+          add_creditcard(xml, creditcard, options[:currency], options[:cvv_indicator_visa_discover])
+          add_address(xml, creditcard, options)
+          if @options[:customer_profiles]
+            add_customer_data(xml, creditcard, options)
+            add_managed_billing(xml, options)
+          end
+        end
+        commit(order, :purchase, options[:trace_number])
+      end
+
+      def add_creditcard(xml, creditcard, currency=nil, cvv_indicator_visa_discover=false)
         unless creditcard.nil?
           xml.tag! :AccountNum, creditcard.number
           xml.tag! :Exp, expiry_date(creditcard)
@@ -69,11 +95,13 @@ module ActiveMerchant
         xml.tag! :CurrencyCode, currency_code(currency)
         xml.tag! :CurrencyExponent, currency_exponents(currency)
 
-        # Do not include the CardSecValInd if verification_value is not present because CC flow does not try to collect this information
-        # - http://download.chasepaymentech.com/docs/orbital/orbital_gateway_xml_specification.pdf
         unless creditcard.nil?
           if %w( visa discover ).include?(creditcard.brand)
-            xml.tag! :CardSecValInd, '1' if creditcard.verification_value?
+            if cvv_indicator_visa_discover
+              xml.tag! :CardSecValInd, (creditcard.verification_value? ? '1' : '9')
+            else
+              xml.tag! :CardSecValInd, '1' if creditcard.verification_value?
+            end
           end
           xml.tag! :CardSecVal,  creditcard.verification_value if creditcard.verification_value?
         end
