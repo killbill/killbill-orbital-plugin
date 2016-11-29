@@ -1,5 +1,10 @@
 0.1.0
     Initial release for 0.18.x
 
+0.0.2
+    Map reference ids and gateway error code in response
+    Specify User-Agent and X-Request-Id headers
+    Make CardSecValInd configurable
+
 0.0.1
     Initial release for 0.16.x
