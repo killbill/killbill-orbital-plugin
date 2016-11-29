@@ -141,6 +141,8 @@ Plugin properties
 | cc_expiration_month          | Credit card expiration month                                      |
 | cc_expiration_year           | Credit card expiration year                                       |
 | cc_verification_value        | CVC/CVV/CVN                                                       |
+| cvv_indicator_visa_discover  | If true, set '9' as `CardSecValInd` when CVV is absent (Visa / Discover only ) |
+| cvv_indicator_override_visa_discover | `CardSecValInd` value when CVV is absent (Visa / Discover only) |
 | email                        | Purchaser email                                                   |
 | address1                     | Billing address first line                                        |
 | address2                     | Billing address second line                                       |
