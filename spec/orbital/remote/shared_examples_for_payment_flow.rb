@@ -16,6 +16,7 @@ shared_examples 'payment_flow_spec' do
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :PURCHASE
+    find_value_from_properties(payment_response.properties, 'processorResponse').should == '100'
 
     responses = Killbill::Orbital::OrbitalResponse.all
     responses.size.should == 2
@@ -33,6 +34,7 @@ shared_examples 'payment_flow_spec' do
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :PURCHASE
+    find_value_from_properties(payment_response.properties, 'processorResponse').should == '100'
 
     # Try a full refund
     refund_response = @plugin.refund_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[1].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
@@ -46,6 +48,7 @@ shared_examples 'payment_flow_spec' do
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :AUTHORIZE
+    find_value_from_properties(payment_response.properties, 'processorResponse').should == '100'
 
     # Try multiple partial captures
     partial_capture_amount = BigDecimal.new('10')
@@ -74,6 +77,7 @@ shared_examples 'payment_flow_spec' do
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :AUTHORIZE
+    find_value_from_properties(payment_response.properties, 'processorResponse').should == '100'
 
     payment_response = @plugin.void_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[1].id, @pm.kb_payment_method_id, @properties, @call_context)
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
@@ -85,6 +89,7 @@ shared_examples 'payment_flow_spec' do
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :AUTHORIZE
+    find_value_from_properties(payment_response.properties, 'processorResponse').should == '100'
 
     partial_capture_amount = BigDecimal.new('10')
     payment_response       = @plugin.capture_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[1].id, @pm.kb_payment_method_id, partial_capture_amount, @currency, @properties, @call_context)
@@ -95,5 +100,14 @@ shared_examples 'payment_flow_spec' do
     payment_response = @plugin.void_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[2].id, @pm.kb_payment_method_id, @properties, @call_context)
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.transaction_type.should == :VOID
+  end
+
+  it 'should include host response code' do
+    # Sending a specific amount of 530 will trigger the Do Not Honor error.
+    payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, BigDecimal.new('530'), @currency, @properties, @call_context)
+    payment_response.status.should eq(:ERROR), payment_response.gateway_error
+    payment_response.transaction_type.should == :AUTHORIZE
+    payment_response.amount.should be_nil
+    find_value_from_properties(payment_response.properties, 'processorResponse').should == '530'
   end
 end
