@@ -25,7 +25,7 @@
     <groupId>org.kill-bill.billing.plugin.ruby</groupId>
     <artifactId>orbital-plugin</artifactId>
     <packaging>pom</packaging>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <name>orbital-plugin</name>
     <url>http://github.com/killbill/killbill-orbital-plugin</url>
     <description>Plugin for accessing Orbital as a payment gateway</description>
