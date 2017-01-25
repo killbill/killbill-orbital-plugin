@@ -99,7 +99,9 @@ module ActiveMerchant
             xml.tag! :Comments, parameters[:comments] if parameters[:comments]
 
             # Add additional card information for tokenized credit card that must be placed after the above three elements
-            add_addtional_network_tokenization(xml, parameters[:creditcard]) unless parameters[:creditcard].nil?
+            if action == AUTH_ONLY or action == AUTH_AND_CAPTURE
+              add_addtional_network_tokenization(xml, parameters[:creditcard]) unless parameters[:creditcard].nil?
+            end
 
             if parameters[:soft_descriptors].is_a?(OrbitalSoftDescriptors)
               add_soft_descriptors(xml, parameters[:soft_descriptors])
@@ -108,7 +110,7 @@ module ActiveMerchant
             set_recurring_ind(xml, parameters)
 
             # Append Transaction Reference Number at the end for Refund transactions
-            if action == REFUND
+            if action == REFUND and !parameters[:authorization].nil?
               tx_ref_num, _ = split_authorization(parameters[:authorization])
               xml.tag! :TxRefNum, tx_ref_num
             end
@@ -143,6 +145,18 @@ module ActiveMerchant
           add_network_tokenization(xml, creditcard)
         end
         commit(order, :purchase, options[:trace_number])
+      end
+
+      def credit(money, creditcard, options= {})
+        order = build_new_order_xml(REFUND, money, options) do |xml|
+          add_creditcard(xml, creditcard, options)
+          add_address(xml, creditcard, options)
+          if @options[:customer_profiles]
+            add_customer_data(xml, creditcard, options)
+            add_managed_billing(xml, options)
+          end
+        end
+        commit(order, :credit, options[:trace_number])
       end
 
       def add_creditcard(xml, creditcard, options = {})
@@ -192,6 +206,17 @@ module ActiveMerchant
 
       def network_tokenization?(payment_method)
         payment_method.is_a?(NetworkTokenizationCreditCard)
+      end
+
+      def success?(response, message_type)
+        if [:refund, :void, :credit].include?(message_type)
+          response[:proc_status] == SUCCESS
+        elsif response[:customer_profile_action]
+          response[:profile_proc_status] == SUCCESS
+        else
+          response[:proc_status] == SUCCESS &&
+              APPROVED.include?(response[:resp_code])
+        end
       end
 
     end

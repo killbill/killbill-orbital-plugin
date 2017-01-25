@@ -102,6 +102,13 @@ shared_examples 'payment_flow_spec' do
     payment_response.transaction_type.should == :VOID
   end
 
+  it 'should be able to credit' do
+    payment_response = @plugin.credit_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
+    payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
+    payment_response.amount.should == @amount
+    payment_response.transaction_type.should == :CREDIT
+  end
+
   it 'should include host response code' do
     # Sending a specific amount of 530 will trigger the Do Not Honor error.
     payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, BigDecimal.new('530'), @currency, @properties, @call_context)
