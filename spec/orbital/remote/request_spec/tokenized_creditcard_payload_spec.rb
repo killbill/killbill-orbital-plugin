@@ -53,7 +53,8 @@ describe 'Payment request for network tokenized card' do
                                      {
                                          :cc_number => 378282246310005,
                                          :cc_type => 'american_express',
-                                         :payment_cryptogram => cryptogram
+                                         :payment_cryptogram => cryptogram,
+                                         :eci => '7'
                                      })
     @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, {})
     @amount     = BigDecimal.new('100')
@@ -63,6 +64,7 @@ describe 'Payment request for network tokenized card' do
       request_body.should match("<AEVV>#{cryptogram}</AEVV>")
       request_body.should match('<DPANInd>Y</DPANInd>')
       request_body.should match("<DigitalTokenCryptogram>#{cryptogram}</DigitalTokenCryptogram>")
+      request_body.should match('<AuthenticationECIInd>7</AuthenticationECIInd>')
 
       successful_authorize_response
     end
