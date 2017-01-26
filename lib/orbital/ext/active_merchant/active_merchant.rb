@@ -91,7 +91,7 @@ module ActiveMerchant
             xml.tag! :Comments, parameters[:comments] if parameters[:comments]
 
             # Add additional card information for tokenized credit card that must be placed after the above three elements
-            if action == AUTH_ONLY or action == AUTH_AND_CAPTURE
+            if action == AUTH_ONLY || action == AUTH_AND_CAPTURE
               add_additional_network_tokenization(xml, parameters[:creditcard]) unless parameters[:creditcard].nil?
             end
 
@@ -102,7 +102,7 @@ module ActiveMerchant
             set_recurring_ind(xml, parameters)
 
             # Append Transaction Reference Number at the end for Refund transactions
-            if action == REFUND and !parameters[:authorization].nil?
+            if action == REFUND && !parameters[:authorization].nil?
               tx_ref_num, _ = split_authorization(parameters[:authorization])
               xml.tag! :TxRefNum, tx_ref_num
             end
