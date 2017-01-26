@@ -7,15 +7,6 @@ module ActiveMerchant
 
       API_VERSION = '7.0.1'
 
-      POST_HEADERS = {
-          "MIME-Version" => "1.1",
-          "Content-Type" => "application/PTI70",
-          "Content-transfer-encoding" => "text",
-          "Request-number" => '1',
-          "Document-type" => "Request",
-          "Interface-Version" => "Ruby|ActiveMerchant|Proprietary Gateway"
-      }
-
       def store(creditcard, options = {})
         response = add_customer_profile(creditcard, options)
 
@@ -47,7 +38,8 @@ module ActiveMerchant
 
         headers = POST_HEADERS.merge('Content-length' => order.size.to_s,
                                      'User-Agent' => user_agent,
-                                     'Interface-Version' => 'Ruby|KillBill|Open-Source Gateway')
+                                     'Interface-Version' => 'Ruby|KillBill|Open-Source Gateway',
+                                     'Content-Type' => 'application/PTI70')
         headers['X-Request-Id'] = x_r_id unless x_r_id.blank?
         headers.merge!('Trace-number' => trace_number.to_s,
                        'Merchant-Id' => @options[:merchant_id]) if @options[:retry_logic] && trace_number
