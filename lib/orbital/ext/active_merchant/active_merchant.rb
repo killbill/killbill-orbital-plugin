@@ -92,7 +92,7 @@ module ActiveMerchant
 
             # Add additional card information for tokenized credit card that must be placed after the above three elements
             if action == AUTH_ONLY or action == AUTH_AND_CAPTURE
-              add_addtional_network_tokenization(xml, parameters[:creditcard]) unless parameters[:creditcard].nil?
+              add_additional_network_tokenization(xml, parameters[:creditcard]) unless parameters[:creditcard].nil?
             end
 
             if parameters[:soft_descriptors].is_a?(OrbitalSoftDescriptors)
@@ -185,7 +185,7 @@ module ActiveMerchant
         xml.tag!('CAVV', payment_method.payment_cryptogram) if card_brand == :visa
       end
 
-      def add_addtional_network_tokenization(xml, payment_method)
+      def add_additional_network_tokenization(xml, payment_method)
         return unless network_tokenization?(payment_method)
         card_brand = card_brand(payment_method).to_sym
 
