@@ -22,13 +22,12 @@ describe Killbill::Orbital::PaymentPlugin do
 
   context 'cvv indicator spec' do
     before(:each) do
-      @properties = build_pm_properties(nil, { :cc_number => '5454545454545454' })
-      @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, {})
       @amount     = BigDecimal.new('100')
       @currency   = 'USD'
     end
 
     it 'should set correct indicator for visa and discover if cvv value is present regardless of cvv_indicator_visa_discover' do
+      @properties = build_pm_properties(nil, { :cc_number => '5454545454545454' })
       validate_cvv_indicator_field 1
 
       @properties = build_pm_properties(nil, { :cc_number => '5454545454545454', :cc_type => 'discover' })
@@ -149,14 +148,22 @@ describe Killbill::Orbital::PaymentPlugin do
         successful_purchase_response
       end
     end
-    create_payment
-    payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
+
+    authorize
+    purchase
+  end
+
+  def authorize
+    kb_payment_id, kb_transaction_id = create_payment
+    payment_response = @plugin.authorize_payment(SecureRandom.uuid, kb_payment_id, kb_transaction_id, SecureRandom.uuid, @amount, @currency, @properties, @call_context)
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :AUTHORIZE
+  end
 
-    create_payment
-    payment_response = @plugin.purchase_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
+  def purchase
+    kb_payment_id, kb_transaction_id = create_payment
+    payment_response = @plugin.purchase_payment(SecureRandom.uuid, kb_payment_id, kb_transaction_id, SecureRandom.uuid, @amount, @currency, @properties, @call_context)
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :PURCHASE

@@ -27,6 +27,6 @@ def create_payment
   1.upto(6) do
     @kb_payment = @plugin.kb_apis.proxied_services[:payment_api].add_payment(kb_payment_id)
   end
-  kb_payment_id
+  [kb_payment_id, @kb_payment.transactions[0].id]
 end
 

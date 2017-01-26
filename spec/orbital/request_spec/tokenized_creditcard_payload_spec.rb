@@ -31,7 +31,6 @@ describe 'Payment request for network tokenized card' do
                                          :cc_type => 'visa',
                                          :payment_cryptogram => cryptogram
                                      })
-    @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, {})
     @amount     = BigDecimal.new('100')
     @currency   = 'USD'
 
@@ -50,13 +49,12 @@ describe 'Payment request for network tokenized card' do
 
     cryptogram  = 'EHuWW9PiBkWvqE5juRwDzAUFBAk='
     @properties = build_pm_properties(nil,
-                                     {
-                                         :cc_number => 378282246310005,
-                                         :cc_type => 'american_express',
-                                         :payment_cryptogram => cryptogram,
-                                         :eci => '7'
-                                     })
-    @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, {})
+                                      {
+                                          :cc_number => 378282246310005,
+                                          :cc_type => 'american_express',
+                                          :payment_cryptogram => cryptogram,
+                                          :eci => '7',
+                                      })
     @amount     = BigDecimal.new('100')
     @currency   = 'USD'
 
@@ -76,12 +74,11 @@ describe 'Payment request for network tokenized card' do
 
     cryptogram  = 'EHuWW9PiBkWvqE5juRwDzAUFBAk='
     @properties = build_pm_properties(nil,
-                                     {
-                                         :cc_number => 5555555555554444,
-                                         :cc_type => 'master',
-                                         :payment_cryptogram => cryptogram
-                                     })
-    @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, {})
+                                      {
+                                          :cc_number => 5555555555554444,
+                                          :cc_type => 'master',
+                                          :payment_cryptogram => cryptogram,
+                                      })
     @amount     = BigDecimal.new('100')
     @currency   = 'USD'
 
@@ -100,12 +97,11 @@ describe 'Payment request for network tokenized card' do
 
     cryptogram  = 'EHuWW9PiBkWvqE5juRwDzAUFBAk='
     @properties = build_pm_properties(nil,
-                                     {
-                                         :cc_number => 6011111111111117,
-                                         :cc_type => 'discover',
-                                         :payment_cryptogram => cryptogram
-                                     })
-    @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, {})
+                                      {
+                                          :cc_number => 6011111111111117,
+                                          :cc_type => 'discover',
+                                          :payment_cryptogram => cryptogram
+                                      })
     @amount     = BigDecimal.new('100')
     @currency   = 'USD'
 
@@ -128,8 +124,8 @@ describe 'Payment request for network tokenized card' do
   end
 
   def validate_payment
-    create_payment
-    payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
+    kb_payment_id, kb_transaction_id = create_payment
+    payment_response = @plugin.authorize_payment(SecureRandom.uuid, kb_payment_id, kb_transaction_id, SecureRandom.uuid, @amount, @currency, @properties, @call_context)
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :AUTHORIZE
