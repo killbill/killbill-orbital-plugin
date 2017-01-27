@@ -22,3 +22,11 @@ ActiveRecord::Base.establish_connection(
 # Create the schema
 require File.expand_path(File.dirname(__FILE__) + '../../db/schema.rb')
 
+def create_payment
+  kb_payment_id = SecureRandom.uuid
+  1.upto(6) do
+    @kb_payment = @plugin.kb_apis.proxied_services[:payment_api].add_payment(kb_payment_id)
+  end
+  [kb_payment_id, @kb_payment.transactions[0].id]
+end
+

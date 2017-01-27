@@ -5,6 +5,8 @@ module ActiveMerchant
 
     class OrbitalGateway
 
+      API_VERSION = '7.0.1'
+
       def store(creditcard, options = {})
         response = add_customer_profile(creditcard, options)
 
@@ -36,7 +38,8 @@ module ActiveMerchant
 
         headers = POST_HEADERS.merge('Content-length' => order.size.to_s,
                                      'User-Agent' => user_agent,
-                                     'Interface-Version' => 'Ruby|KillBill|Open-Source Gateway')
+                                     'Interface-Version' => 'Ruby|KillBill|Open-Source Gateway',
+                                     'Content-Type' => 'application/PTI70')
         headers['X-Request-Id'] = x_r_id unless x_r_id.blank?
         headers.merge!('Trace-number' => trace_number.to_s,
                        'Merchant-Id' => @options[:merchant_id]) if @options[:retry_logic] && trace_number
@@ -60,22 +63,84 @@ module ActiveMerchant
                      })
       end
 
+      def build_new_order_xml(action, money, parameters = {})
+        requires!(parameters, :order_id)
+        xml = xml_envelope
+        xml.tag! :Request do
+          xml.tag! :NewOrder do
+            add_xml_credentials(xml)
+            # EC - Ecommerce transaction
+            # RC - Recurring Payment transaction
+            # MO - Mail Order Telephone Order transaction
+            # IV - Interactive Voice Response
+            # IN - Interactive Voice Response
+            xml.tag! :IndustryType, parameters[:industry_type] || ECOMMERCE_TRANSACTION
+            # A  - Auth Only No Capture
+            # AC - Auth and Capture
+            # F  - Force Auth No Capture and no online authorization
+            # FR - Force Auth No Capture and no online authorization
+            # FC - Force Auth and Capture no online authorization
+            # R  - Refund and Capture no online authorization
+            xml.tag! :MessageType, action
+            add_bin_merchant_and_terminal(xml, parameters)
+
+            yield xml if block_given?
+
+            xml.tag! :OrderID, format_order_id(parameters[:order_id])
+            xml.tag! :Amount, amount(money)
+            xml.tag! :Comments, parameters[:comments] if parameters[:comments]
+
+            # Add additional card information for tokenized credit card that must be placed after the above three elements
+            if action == AUTH_ONLY || action == AUTH_AND_CAPTURE
+              add_additional_network_tokenization(xml, parameters[:creditcard]) unless parameters[:creditcard].nil?
+            end
+
+            if parameters[:soft_descriptors].is_a?(OrbitalSoftDescriptors)
+              add_soft_descriptors(xml, parameters[:soft_descriptors])
+            end
+
+            set_recurring_ind(xml, parameters)
+
+            # Append Transaction Reference Number at the end for Refund transactions
+            if action == REFUND && !parameters[:authorization].nil?
+              tx_ref_num, _ = split_authorization(parameters[:authorization])
+              xml.tag! :TxRefNum, tx_ref_num
+            end
+          end
+        end
+        xml.target!
+      end
+
       # A – Authorization request
       def authorize(money, creditcard, options = {})
-        order = build_new_order_xml(AUTH_ONLY, money, options) do |xml|
+        order = build_new_order_xml(AUTH_ONLY, money, options.merge(:creditcard=>creditcard)) do |xml|
           add_creditcard(xml, creditcard, options)
           add_address(xml, creditcard, options)
           if @options[:customer_profiles]
             add_customer_data(xml, creditcard, options)
             add_managed_billing(xml, options)
           end
+          add_network_tokenization(xml, creditcard)
         end
         commit(order, :authorize, options[:trace_number])
       end
 
       # AC – Authorization and Capture
       def purchase(money, creditcard, options = {})
-        order = build_new_order_xml(AUTH_AND_CAPTURE, money, options) do |xml|
+        order = build_new_order_xml(AUTH_AND_CAPTURE, money, options.merge(:creditcard=>creditcard)) do |xml|
+          add_creditcard(xml, creditcard, options)
+          add_address(xml, creditcard, options)
+          if @options[:customer_profiles]
+            add_customer_data(xml, creditcard, options)
+            add_managed_billing(xml, options)
+          end
+          add_network_tokenization(xml, creditcard)
+        end
+        commit(order, :purchase, options[:trace_number])
+      end
+
+      def credit(money, creditcard, options= {})
+        order = build_new_order_xml(REFUND, money, options) do |xml|
           add_creditcard(xml, creditcard, options)
           add_address(xml, creditcard, options)
           if @options[:customer_profiles]
@@ -83,7 +148,7 @@ module ActiveMerchant
             add_managed_billing(xml, options)
           end
         end
-        commit(order, :purchase, options[:trace_number])
+        commit(order, :credit, options[:trace_number])
       end
 
       def add_creditcard(xml, creditcard, options = {})
@@ -108,6 +173,41 @@ module ActiveMerchant
             end
           end
           xml.tag! :CardSecVal,  creditcard.verification_value if creditcard.verification_value?
+        end
+      end
+
+      def add_network_tokenization(xml, payment_method)
+        return unless network_tokenization?(payment_method)
+        card_brand = card_brand(payment_method).to_sym
+
+        # The elements must follow a specific sequence
+        xml.tag!('AuthenticationECIInd', payment_method.eci) unless payment_method.eci.nil?
+        xml.tag!('CAVV', payment_method.payment_cryptogram) if card_brand == :visa
+      end
+
+      def add_additional_network_tokenization(xml, payment_method)
+        return unless network_tokenization?(payment_method)
+        card_brand = card_brand(payment_method).to_sym
+
+        # The elements must follow a specific sequence
+        xml.tag!('AAV', payment_method.payment_cryptogram) if card_brand == :master
+        xml.tag!('DPANInd', 'Y')
+        xml.tag!('AEVV', payment_method.payment_cryptogram) if card_brand == :american_express
+        xml.tag!('DigitalTokenCryptogram', payment_method.payment_cryptogram)
+      end
+
+      def network_tokenization?(payment_method)
+        payment_method.is_a?(NetworkTokenizationCreditCard)
+      end
+
+      def success?(response, message_type)
+        if [:refund, :void, :credit].include?(message_type)
+          response[:proc_status] == SUCCESS
+        elsif response[:customer_profile_action]
+          response[:profile_proc_status] == SUCCESS
+        else
+          response[:proc_status] == SUCCESS &&
+              APPROVED.include?(response[:resp_code])
         end
       end
 
