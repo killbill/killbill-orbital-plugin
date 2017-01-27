@@ -3,7 +3,7 @@
     :test: true
     :login: <%= ENV['LOGIN'] %>
     :password: <%= ENV['PASSWORD'] %>
-    :merchant_id: <%= ENV['MERCHANT_ID'] %>
+    :merchant_id: "<%= ENV['MERCHANT_ID'] %>"
 
 :database:
 # SQLite (development)
