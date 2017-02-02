@@ -1,3 +1,8 @@
+0.1.2
+    Upgrade Orbital API version to 7.0.1
+    Add network tokenization support
+    Add support for credit operation
+
 0.1.1
     Return processor response in PaymentTransactionInfoPlugin
 
