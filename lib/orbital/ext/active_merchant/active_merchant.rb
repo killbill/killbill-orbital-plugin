@@ -211,6 +211,67 @@ module ActiveMerchant
         end
       end
 
+      class AVSResult
+
+        # Convert the Orbital's AVS code (See https://github.com/activemerchant/active_merchant/blob/0f6fb4fcb442c310fa21307d9f233fbb56f5c0ad/lib/active_merchant/billing/gateways/orbital.rb#L744)
+        # to
+        # the 'standard' one (https://www.wellsfargo.com/downloads/pdf/biz/merchant/visa_avs.pdf
+        #                     http://en.wikipedia.org/wiki/Address_Verification_System)
+        # Note that 2, 8, D, E, UK are not converted because no suitable target codes in the standard codes are found
+        CONVERT_MAP = {
+            '1'  => 'U', # 'No address supplied' => 'Address information unavailable.' => 'Address information unavailable.'
+            '2'  => '2', # Unchanged: 'Bill-to address did not pass Auth Host edit checks'
+            '3'  => 'I', # 'AVS not performed' => 'Address not verified.'=> 'Address not verified.'
+            '4'  => 'S', # 'Issuer does not participate in AVS', => 'U.S.-issuing bank does not support AVS.'
+            '5'  => 'E', # 'Edit-error - AVS data is invalid', => 'AVS data is invalid or AVS is not allowed for this card type.'
+            '6'  => 'R', # 'System unavailable or time-out', => 'System unavailable.'
+            '7'  => 'U', # 'Address information unavailable', => 'Address information unavailable.'
+            '8'  => '8', # Unchanged: 'Transaction Ineligible for AVS'
+            '9'  => 'X', # 'Zip Match/Zip 4 Match/Locale match', => 'Street address and 9-digit postal code match.'
+            'A'  => 'W', # 'Zip Match/Zip 4 Match/Locale no match', => 'Street address does not match, but 9-digit postal code matches.'
+            'B'  => 'Y', # 'Zip Match/Zip 4 no Match/Locale match', => 'Street address and 5-digit postal code match.'
+            'C'  => 'Z', # 'Zip Match/Zip 4 no Match/Locale no match', => 'Street address does not match, but 5-digit postal code matches.'
+            'D'  => 'D', # Unchanged: 'Zip No Match/Zip 4 Match/Locale match'
+            'E'  => 'E', # Unchanged: 'Zip No Match/Zip 4 Match/Locale no match',
+            'F'  => 'A', # 'Zip No Match/Zip 4 No Match/Locale match', => 'Street address matches, but 5-digit and 9-digit postal code do not match.'
+            'G'  => 'C', # 'No match at all', => 'Street address and postal code do not match.'
+            'H'  => 'Y', # 'Zip Match/Locale match', => 'Street address and 5-digit postal code match.'
+            'J'  => 'G', # 'Issuer does not participate in Global AVS', => 'Non-U.S. issuing bank does not support AVS.'
+            'JA' => 'D', # 'International street address and postal match', => 'Street address and postal code match'
+            'JB' => 'B', # 'International street address match. Postal code not verified', => 'Street address matches, but postal code not verified.'
+            'JC' => 'I', # 'International street address and postal code not verified', => 'Address not verified.'
+            'JD' => 'P', # 'International postal code match. Street address not verified', => 'Postal code matches, but street address not verified.'
+            'M1' => 'K', # 'Cardholder name matches', => 'Card member's name matches but billing address and billing postal code do not match.'
+            'M2' => 'V', # 'Cardholder name, billing address, and postal code matches', => 'Card member's name, billing address, and billing postal code match.'
+            'M3' => 'L', # 'Cardholder name and billing code matches', => 'Card member's name and billing postal code match, but billing address does not match.'
+            'M4' => 'O', # 'Cardholder name and billing address match', => 'Card member's name and billing address match, but billing postal code does not match.	'
+            'M5' => 'H', # 'Cardholder name incorrect, billing address and postal code match', => 'Card member's name does not match. Street address and postal code match.	'
+            'M6' => 'F', # 'Cardholder name incorrect, billing postal code matches', => 'Card member's name does not match, but billing postal code matches.	'
+            'M7' => 'T', # 'Cardholder name incorrect, billing address matches', => 'Card member's name does not match, but street address matches.	'
+            'M8' => 'C', # 'Cardholder name, billing address and postal code are all incorrect', => 'Street address and postal code do not match.	'
+            'N3' => 'B', # 'Address matches, ZIP not verified', => 'Street address matches, but postal code not verified.	'
+            'N4' => 'I', # 'Address and ZIP code not verified due to incompatible formats', => 'Address not verified.	'
+            'N5' => 'D', # 'Address and ZIP code match (International only)', => 'Street address and postal code match. '
+            'N6' => 'I', # 'Address not verified (International only)', => 'Address not verified.'
+            'N7' => 'P', # 'ZIP matches, address not verified', => 'Postal code matches, but street address not verified.	'
+            'N8' => 'D', # 'Address and ZIP code match (International only)', => 'Street address and postal code match.'
+            'N9' => 'D', # 'Address and ZIP code match (UK only)', => 'Street address and postal code match.'
+            'R'  => 'S', # 'Issuer does not participate in AVS', => 'U.S. Bank does not support AVS.	'
+            'UK' => 'UK',# Unchanged: UNKNOWN
+            'X'  => 'X', # 'Zip Match/Zip 4 Match/Address Match', => 'Street address and 9-digit postal code match.	'
+            'Z'  => 'Z'  # 'Zip Match/Locale no match', => 'Street address does not match, but 5-digit postal code matches.	'
+        }
+
+        def initialize(code)
+          @code = code.blank? ? nil : code.to_s.strip.upcase
+          if @code
+            @message      = CODES[@code]
+            @postal_match = ORBITAL_POSTAL_MATCH_CODE[@code]
+            @street_match = ORBITAL_STREET_MATCH_CODE[@code]
+            @code         = CONVERT_MAP[@code] unless CONVERT_MAP[@code].nil?
+          end
+        end
+      end
     end
   end
 end
