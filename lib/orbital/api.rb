@@ -92,7 +92,7 @@ module Killbill #:nodoc:
           end
           response = OrbitalResponse.find_by(:id => orbital_response_id)
           if response.nil?
-            logger.warn("Unable to fix UNDEFINED kb_transaction_id='#{transaction_info_plugin.kb_transaction_payment_id}' (CyberSource response='#{cybersource_response_id}' not found)")
+            logger.warn("Unable to fix UNDEFINED kb_transaction_id='#{transaction_info_plugin.kb_transaction_payment_id}' (Orbital response='#{orbital_response_id}' not found)")
             next
           end
 

@@ -128,7 +128,6 @@ shared_examples 'payment_flow_spec' do
                                                          :created_at => Time.now,
                                                          :updated_at => Time.now)
 
-    # Set skip_gw=true, to avoid calling the report API
     transaction_info_plugins = @plugin.get_payment_info(@pm.kb_account_id, @kb_payment.id, [], @call_context)
     transaction_info_plugins.size.should == 1
     transaction_info_plugins.first.status.should eq(:UNDEFINED)
