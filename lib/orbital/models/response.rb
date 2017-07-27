@@ -80,27 +80,6 @@ module Killbill #:nodoc:
         }
       end
 
-      def cancel
-        begin
-          error_details = JSON.parse(message)
-          original_message = nil
-        rescue
-          error_details = {}
-          original_message = message
-        end
-        error_details['original_message'] = original_message unless original_message.blank?
-        error_details['payment_plugin_status'] = 'CANCELED'
-
-        updated_attributes = {
-            :message => error_details.to_json,
-            :success => false,
-            :updated_at => Time.now.utc
-        }
-
-        # Update the response row
-        update!(updated_attributes)
-      end
-
       def first_reference_id
         params_tx_ref_num
       end
@@ -115,7 +94,6 @@ module Killbill #:nodoc:
 
       def to_transaction_info_plugin(transaction=nil)
         t_info_plugin = super(transaction)
-        t_info_plugin.properties << create_plugin_property('orbitalResponseId', id)
         t_info_plugin.properties << create_plugin_property('processorResponse', params_host_resp_code)
         t_info_plugin
       end

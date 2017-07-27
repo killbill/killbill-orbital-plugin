@@ -117,34 +117,4 @@ shared_examples 'payment_flow_spec' do
     payment_response.amount.should be_nil
     find_value_from_properties(payment_response.properties, 'processorResponse').should == '530'
   end
-
-  it 'should cancel UNDEFINED payments' do
-    response = Killbill::Orbital::OrbitalResponse.create(:api_call => 'authorization',
-                                                         :kb_account_id => @pm.kb_account_id,
-                                                         :kb_payment_id => @kb_payment.id,
-                                                         :kb_payment_transaction_id => @kb_payment.transactions[0].id,
-                                                         :kb_tenant_id => @call_context.tenant_id,
-                                                         :message => '{"exception_message":"Timeout","payment_plugin_status":"UNDEFINED"}',
-                                                         :created_at => Time.now,
-                                                         :updated_at => Time.now)
-
-    # Set skip_gw=true, to avoid calling the report API
-    transaction_info_plugins = @plugin.get_payment_info(@pm.kb_account_id, @kb_payment.id, [], @call_context)
-    transaction_info_plugins.size.should == 1
-    transaction_info_plugins.first.status.should eq(:UNDEFINED)
-
-    cancel_threshold = Killbill::Plugin::Model::PluginProperty.new
-    cancel_threshold.key = 'cancel_threshold'
-    cancel_threshold.value = '0'
-    properties_with_cancel_threshold = @properties.clone
-    properties_with_cancel_threshold << cancel_threshold
-    transaction_info_plugins = @plugin.get_payment_info(@pm.kb_account_id, @kb_payment.id, properties_with_cancel_threshold, @call_context)
-    transaction_info_plugins.size.should == 1
-    transaction_info_plugins.first.status.should eq(:CANCELED)
-
-    # Verify the state is sticky
-    transaction_info_plugins = @plugin.get_payment_info(@pm.kb_account_id, @kb_payment.id, @properties, @call_context)
-    transaction_info_plugins.size.should == 1
-    transaction_info_plugins.first.status.should eq(:CANCELED)
-  end
 end
