@@ -95,6 +95,8 @@ module Killbill #:nodoc:
       def to_transaction_info_plugin(transaction=nil)
         t_info_plugin = super(transaction)
         t_info_plugin.properties << create_plugin_property('processorResponse', params_host_resp_code)
+
+        t_info_plugin.status = :CANCELED if t_info_plugin.status == :UNDEFINED
         t_info_plugin
       end
     end
