@@ -219,9 +219,9 @@ module ActiveMerchant
         #                     http://en.wikipedia.org/wiki/Address_Verification_System)
         # Note that 2, 8, D, E, UK are not converted because no suitable target codes in the standard codes are found
         CONVERT_MAP = {
-            '1'  => 'U', # 'No address supplied' => 'Address information unavailable.' => 'Address information unavailable.'
+            '1'  => 'U', # 'No address supplied' => 'Address information unavailable.'
             '2'  => '2', # Unchanged: 'Bill-to address did not pass Auth Host edit checks'
-            '3'  => 'I', # 'AVS not performed' => 'Address not verified.'=> 'Address not verified.'
+            '3'  => 'I', # 'AVS not performed' => 'Address not verified.'
             '4'  => 'S', # 'Issuer does not participate in AVS', => 'U.S.-issuing bank does not support AVS.'
             '5'  => 'E', # 'Edit-error - AVS data is invalid', => 'AVS data is invalid or AVS is not allowed for this card type.'
             '6'  => 'R', # 'System unavailable or time-out', => 'System unavailable.'
@@ -234,7 +234,7 @@ module ActiveMerchant
             'D'  => 'D', # Unchanged: 'Zip No Match/Zip 4 Match/Locale match'
             'E'  => 'E', # Unchanged: 'Zip No Match/Zip 4 Match/Locale no match',
             'F'  => 'A', # 'Zip No Match/Zip 4 No Match/Locale match', => 'Street address matches, but 5-digit and 9-digit postal code do not match.'
-            'G'  => 'C', # 'No match at all', => 'Street address and postal code do not match.'
+            'G'  => 'N', # 'No match at all', => 'Street address and postal code do not match.'
             'H'  => 'Y', # 'Zip Match/Locale match', => 'Street address and 5-digit postal code match.'
             'J'  => 'G', # 'Issuer does not participate in Global AVS', => 'Non-U.S. issuing bank does not support AVS.'
             'JA' => 'D', # 'International street address and postal match', => 'Street address and postal code match'
@@ -248,9 +248,9 @@ module ActiveMerchant
             'M5' => 'H', # 'Cardholder name incorrect, billing address and postal code match', => 'Card member's name does not match. Street address and postal code match.	'
             'M6' => 'F', # 'Cardholder name incorrect, billing postal code matches', => 'Card member's name does not match, but billing postal code matches.	'
             'M7' => 'T', # 'Cardholder name incorrect, billing address matches', => 'Card member's name does not match, but street address matches.	'
-            'M8' => 'C', # 'Cardholder name, billing address and postal code are all incorrect', => 'Street address and postal code do not match.	'
+            'M8' => 'N', # 'Cardholder name, billing address and postal code are all incorrect', => 'Street address and postal code do not match.	'
             'N3' => 'B', # 'Address matches, ZIP not verified', => 'Street address matches, but postal code not verified.	'
-            'N4' => 'I', # 'Address and ZIP code not verified due to incompatible formats', => 'Address not verified.	'
+            'N4' => 'C', # 'Address and ZIP code not verified due to incompatible formats', => 'Address not verified.	'
             'N5' => 'D', # 'Address and ZIP code match (International only)', => 'Street address and postal code match. '
             'N6' => 'I', # 'Address not verified (International only)', => 'Address not verified.'
             'N7' => 'P', # 'ZIP matches, address not verified', => 'Postal code matches, but street address not verified.	'
