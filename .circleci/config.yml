@@ -55,5 +55,5 @@ jobs:
           name: Maybe release
           command: |
             if [ "${CIRCLE_BRANCH}" == "circle-ci-experiment" ]; then
-              eval ${DO_RELEASE}
+              eval ${DO_RELEASE} orbital
             fi
