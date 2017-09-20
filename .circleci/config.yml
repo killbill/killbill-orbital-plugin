@@ -55,6 +55,5 @@ jobs:
           name: Maybe release
           command: |
             if [ "${CIRCLE_BRANCH}" == "circle-ci-experiment" ]; then
-              printf "<settingsSecurity><master>${MVN_MASTER_PASSWORD}</master></settingsSecurity>" > /home/killbill/.m2/settings-security.xml
-              MVN="mvn --settings /home/killbill/.m2/settings.xml" NO_RELEASE=1 bash release.sh
+              $DO_RELEASE
             fi
