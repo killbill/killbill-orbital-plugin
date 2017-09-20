@@ -16,16 +16,16 @@ jobs:
       - restore_cache:
           keys:
           - v1-dependencies-{{ checksum "Gemfile.lock" }}-{{ checksum "pom.xml" }}
-          # fallback to using the latest cache if no exact match is found
+          # Fallback to using the latest cache if no exact match is found
           - v1-dependencies-
 
       - run:
-          name: install gem dependencies
+          name: Install gem dependencies
           command: |
             bundle install --jobs=4 --retry=3 --deployment --path=${BUNDLE_PATH:-vendor/bundle}
 
       - run:
-          name: install Java dependencies
+          name: Install Java dependencies
           command: |
             bundle exec jbundle install
 
@@ -35,16 +35,16 @@ jobs:
             - ~/.m2
           key: v1-dependencies-{{ checksum "Gemfile.lock" }}-{{ checksum "pom.xml" }}
 
-      # run tests!
+      # Run tests
       - run:
-          name: run tests
+          name: Run tests
           command: |
             mkdir /tmp/test-results
             bundle exec rspec --format documentation \
                               --out /tmp/test-results/rspec.txt \
                               $(circleci tests glob "spec/*/*_spec.rb")
 
-      # collect reports
+      # Collect reports
       - store_test_results:
           path: /tmp/test-results
       - store_artifacts:
@@ -55,5 +55,5 @@ jobs:
           name: Maybe release
           command: |
             if [ "${CIRCLE_BRANCH}" == "circle-ci-experiment" ]; then
-              $DO_RELEASE
+              eval ${DO_RELEASE}
             fi

@@ -30,7 +30,7 @@ $BUNDLE rake build
 
 if [[ -z "$NO_RELEASE" ]]; then
   echo 'Pushing the gem to Rubygems'
-  $BUNDLE rake release
+  $BUNDLE rake release || true # Idempotent, in case it was already pushed
 fi
 
 echo 'Building artifact'
