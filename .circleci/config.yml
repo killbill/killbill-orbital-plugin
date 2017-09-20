@@ -1,0 +1,64 @@
+version: 2
+jobs:
+  build:
+    docker:
+       - image: killbill/kbbuild:latest
+
+    working_directory: ~/repo
+
+    environment:
+      JRUBY_OPTS: -J-Xmx1024M
+
+    steps:
+      - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "Gemfile.lock" }}-{{ checksum "pom.xml" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
+
+      - run:
+          name: install gem dependencies
+          command: |
+            bundle install --jobs=4 --retry=3 --deployment --path=${BUNDLE_PATH:-vendor/bundle}
+
+      - run:
+          name: install Java dependencies
+          command: |
+            bundle exec jbundle install
+
+      - save_cache:
+          paths:
+            - ./vendor/bundle
+            - ~/.m2
+          key: v1-dependencies-{{ checksum "Gemfile.lock" }}-{{ checksum "pom.xml" }}
+
+      # run tests!
+      - run:
+          name: run tests
+          command: |
+            mkdir /tmp/test-results
+            TEST_FILES="$(circleci tests glob "spec/**/*_spec.rb" | circleci tests split --split-by=timings)"
+
+            bundle exec rspec --format progress \
+                              --format RspecJunitFormatter \
+                              --out /tmp/test-results/rspec.xml \
+                              --format progress \
+                              "${TEST_FILES}"
+
+      # collect reports
+      - store_test_results:
+          path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: test-results
+
+      - deploy:
+          name: Maybe release
+          command: |
+            if [ "${CIRCLE_BRANCH}" == "circle-ci-experiment" ]; then
+              printf "<settings><servers><server><id>sonatype-nexus-snapshots</id><username>\${env.OSSRH_USER}</username><password>\${env.OSSRH_PASS}</password></server></servers></settings>" > ~/settings.xml
+              MVN="mvn --settings $HOME/settings.xml" NO_RELEASE=1 bash release.sh
+            fi
