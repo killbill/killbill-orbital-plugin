@@ -42,10 +42,9 @@ jobs:
             mkdir /tmp/test-results
             TEST_FILES="$(circleci tests glob "spec/**/*_spec.rb" | circleci tests split --split-by=timings)"
 
-            bundle exec rspec --format progress \
-                              --format RspecJunitFormatter \
-                              --out /tmp/test-results/rspec.xml \
-                              --format progress \
+            bundle exec rspec --format documentation \
+                              --out /tmp/test-results/rspec.txt \
+                              --format documentation \
                               "${TEST_FILES}"
 
       # collect reports
@@ -59,6 +58,5 @@ jobs:
           name: Maybe release
           command: |
             if [ "${CIRCLE_BRANCH}" == "circle-ci-experiment" ]; then
-              printf "<settings><servers><server><id>sonatype-nexus-snapshots</id><username>\${env.OSSRH_USER}</username><password>\${env.OSSRH_PASS}</password></server></servers></settings>" > ~/settings.xml
               MVN="mvn --settings $HOME/settings.xml" NO_RELEASE=1 bash release.sh
             fi
