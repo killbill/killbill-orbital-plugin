@@ -35,10 +35,16 @@ module Killbill #:nodoc:
 
       def capture_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
         # Pass extra parameters for the gateway here
-        options = {}
-
-        properties = merge_properties(properties, options)
-        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
+        options = properties_to_hash properties
+        if options[:force_capture]
+          last_auth_response = @response_model.send('auth_responses_from_kb_payment_id', kb_payment_id, context.tenant_id).last
+          raise "Unable to retrieve last authorization for operation=capture, kb_payment_id=#{kb_payment_id}, kb_payment_transaction_id=#{kb_payment_transaction_id}, kb_payment_method_id=#{kb_payment_method_id}" if last_auth_response.nil?
+          options[:payment_processor_account_id] = last_auth_response.payment_processor_account_id
+          options[:prior_auth_id] = last_auth_response.params_auth_code
+          purchase_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, hash_to_properties(options), context)
+        else
+          super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
+        end
       end
 
       def purchase_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
