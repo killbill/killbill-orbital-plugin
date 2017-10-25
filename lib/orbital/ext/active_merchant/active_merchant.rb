@@ -135,7 +135,7 @@ module ActiveMerchant
       end
 
       def credit(money, creditcard, options= {})
-        order = build_new_order_xml_with_cc(FORCE_AUTH_AND_CAPTURE, money, creditcard, options)
+        order = build_new_order_xml_with_cc(REFUND, money, creditcard, options)
         commit(order, :credit, options[:trace_number])
       end
 
