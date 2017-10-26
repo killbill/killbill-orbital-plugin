@@ -88,6 +88,10 @@ module Killbill #:nodoc:
         params_order_id
       end
 
+      def self.auth_responses_from_kb_payment_id(kb_payment_id, kb_tenant_id)
+        where(:kb_payment_id => kb_payment_id, :kb_tenant_id => kb_tenant_id, :api_call => 'authorize').order(:created_at)
+      end
+
       def gateway_error_code
         params_resp_code
       end

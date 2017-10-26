@@ -86,6 +86,7 @@ module ActiveMerchant
 
             yield xml if block_given?
 
+            xml.tag! :PriorAuthID, parameters[:prior_auth_id] if parameters[:prior_auth_id]
             xml.tag! :OrderID, format_order_id(parameters[:order_id])
             xml.tag! :Amount, amount(money)
             xml.tag! :Comments, parameters[:comments] if parameters[:comments]
@@ -113,21 +114,33 @@ module ActiveMerchant
 
       # A – Authorization request
       def authorize(money, creditcard, options = {})
-        order = build_new_order_xml(AUTH_ONLY, money, options.merge(:creditcard=>creditcard)) do |xml|
-          add_creditcard(xml, creditcard, options)
-          add_address(xml, creditcard, options)
-          if @options[:customer_profiles]
-            add_customer_data(xml, creditcard, options)
-            add_managed_billing(xml, options)
-          end
-          add_network_tokenization(xml, creditcard)
-        end
+        order = build_new_order_xml_with_cc(AUTH_ONLY, money, creditcard, options)
         commit(order, :authorize, options[:trace_number])
       end
 
-      # AC – Authorization and Capture
+      # AC – Authorization and Capture or Force Capture
       def purchase(money, creditcard, options = {})
-        order = build_new_order_xml(AUTH_AND_CAPTURE, money, options.merge(:creditcard=>creditcard)) do |xml|
+        if options[:force_capture]
+          order = build_new_order_xml_with_cc(FORCE_AUTH_AND_CAPTURE, money, creditcard, options)
+          commit(order, :purchase, options[:trace_number])
+        else
+          order = build_new_order_xml_with_cc(AUTH_AND_CAPTURE, money, creditcard, options)
+          commit(order, :purchase, options[:trace_number])
+        end
+      end
+
+      # MFC - Mark For Capture or Force capture
+      def capture(money, authorization, options = {})
+        commit(build_mark_for_capture_xml(money, authorization, options), :capture)
+      end
+
+      def credit(money, creditcard, options= {})
+        order = build_new_order_xml_with_cc(REFUND, money, creditcard, options)
+        commit(order, :credit, options[:trace_number])
+      end
+
+      def build_new_order_xml_with_cc(operation, money, creditcard, options)
+        build_new_order_xml(operation, money, options.merge(:creditcard=>creditcard)) do |xml|
           add_creditcard(xml, creditcard, options)
           add_address(xml, creditcard, options)
           if @options[:customer_profiles]
@@ -136,19 +149,6 @@ module ActiveMerchant
           end
           add_network_tokenization(xml, creditcard)
         end
-        commit(order, :purchase, options[:trace_number])
-      end
-
-      def credit(money, creditcard, options= {})
-        order = build_new_order_xml(REFUND, money, options) do |xml|
-          add_creditcard(xml, creditcard, options)
-          add_address(xml, creditcard, options)
-          if @options[:customer_profiles]
-            add_customer_data(xml, creditcard, options)
-            add_managed_billing(xml, options)
-          end
-        end
-        commit(order, :credit, options[:trace_number])
       end
 
       def add_creditcard(xml, creditcard, options = {})
