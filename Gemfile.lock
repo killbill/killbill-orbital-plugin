@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    killbill-orbital (0.1.7)
+    killbill-orbital (0.1.8)
       actionpack (~> 4.1.0)
       actionview (~> 4.1.0)
       activemerchant (~> 1.55.0)
