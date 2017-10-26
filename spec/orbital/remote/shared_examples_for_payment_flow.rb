@@ -72,6 +72,30 @@ shared_examples 'payment_flow_spec' do
     payment_response.transaction_type.should == :CAPTURE
   end
 
+  it 'should be able to auth, partial force-captures and refund' do
+    payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
+    payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
+    payment_response.amount.should == @amount
+    payment_response.transaction_type.should == :AUTHORIZE
+    find_value_from_properties(payment_response.properties, 'processorResponse').should == '100'
+
+    # Try multiple partial captures
+    partial_capture_amount = BigDecimal.new('10')
+    @properties << build_property('force_capture', true)
+    1.upto(3) do |i|
+      payment_response = @plugin.capture_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[i].id, @pm.kb_payment_method_id, partial_capture_amount, @currency, @properties, @call_context)
+      payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
+      payment_response.amount.should == partial_capture_amount
+      payment_response.transaction_type.should == :PURCHASE
+    end
+
+    # Try a partial refund
+    refund_response = @plugin.refund_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[4].id, @pm.kb_payment_method_id, partial_capture_amount, @currency, @properties, @call_context)
+    refund_response.status.should eq(:PROCESSED), refund_response.gateway_error
+    refund_response.amount.should == partial_capture_amount
+    refund_response.transaction_type.should == :REFUND
+  end
+
   it 'should be able to auth and void' do
     payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
     payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
