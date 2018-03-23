@@ -117,6 +117,7 @@ CREATE TABLE orbital_responses (
   params_terminal_id varchar(255) DEFAULT NULL,
   params_tx_ref_idx varchar(255) DEFAULT NULL,
   params_tx_ref_num varchar(255) DEFAULT NULL,
+  params_trace_number varchar(16) DEFAULT NULL,
   avs_result_code varchar(255) DEFAULT NULL,
   avs_result_message varchar(255) DEFAULT NULL,
   avs_result_street_match varchar(255) DEFAULT NULL,
