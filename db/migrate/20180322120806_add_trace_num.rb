@@ -1,4 +1,4 @@
-class EnlargeMessage < ActiveRecord::Migration
+class AddTraceNumber < ActiveRecord::Migration
 
   def change
     add_column :orbital_responses, :params_trace_number, :string
