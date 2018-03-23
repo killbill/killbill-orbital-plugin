@@ -27,20 +27,4 @@ describe Killbill::Orbital::PaymentPlugin do
   it 'should start and stop correctly' do
     @plugin.stop_plugin
   end
-
-  it 'should reset undefined status to canceled' do
-    response_message = {:exception_message => 'Timeout', :payment_plugin_status => :UNDEFINED}.to_json
-    gw_response = ::ActiveMerchant::Billing::Response.new(false, response_message)
-    response = Killbill::Orbital::OrbitalResponse.from_response('authorization',
-                                                                SecureRandom.uuid,
-                                                                SecureRandom.uuid,
-                                                                SecureRandom.uuid,
-                                                                'authorize',
-                                                                'test',
-                                                                SecureRandom.uuid,
-                                                                gw_response,
-                                                                {})
-    plugin_info = response.to_transaction_info_plugin
-    plugin_info.status.should == :CANCELED
-  end
 end
