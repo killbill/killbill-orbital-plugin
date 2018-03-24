@@ -216,12 +216,8 @@ module Killbill #:nodoc:
       end
 
       def with_trace_num_and_order_id(properties)
-        params = {}
-        trace_number = find_value_from_properties(properties, :trace_number)
-        params[:params_trace_number] = trace_number unless trace_number.blank?
-        order_id = find_value_from_properties(properties, :order_id)
-        params[:params_order_id] = order_id unless order_id.blank?
-        params
+        {:params_trace_number => find_value_from_properties(properties, :trace_number),
+         :params_order_id => find_value_from_properties(properties, :order_id)}.delete_if{|_, value| value.blank?}
       end
 
     end
