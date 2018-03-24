@@ -32,7 +32,7 @@ module Killbill #:nodoc:
         options = {}
 
         properties = merge_properties(properties, options)
-        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num(properties))
+        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
       end
 
       def capture_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
@@ -45,7 +45,7 @@ module Killbill #:nodoc:
           options[:prior_auth_id] = last_auth_response.params_auth_code
           purchase_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, hash_to_properties(options), context)
         else
-          super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num(properties))
+          super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
         end
       end
 
@@ -54,7 +54,7 @@ module Killbill #:nodoc:
         options = {}
 
         properties = merge_properties(properties, options)
-        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num(properties))
+        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
       end
 
       def void_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, properties, context)
@@ -62,7 +62,7 @@ module Killbill #:nodoc:
         options = {}
 
         properties = merge_properties(properties, options)
-        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, properties, context, with_trace_num(properties))
+        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, properties, context, with_trace_num_and_order_id(properties))
       end
 
       def credit_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
@@ -70,7 +70,7 @@ module Killbill #:nodoc:
         options = {}
 
         properties = merge_properties(properties, options)
-        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num(properties))
+        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
       end
 
       def refund_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
@@ -78,7 +78,7 @@ module Killbill #:nodoc:
         options = {}
 
         properties = merge_properties(properties, options)
-        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num(properties))
+        super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
       end
 
       def get_payment_info(kb_account_id, kb_payment_id, properties, context)
@@ -150,14 +150,14 @@ module Killbill #:nodoc:
       def try_fix_undefined_trxs(plugin_trxs_info, options, context)
         stale = false
         plugin_trxs_info.each do |plugin_trx_info|
-          next unless should_fix_trx plugin_trx_info, options
+          next unless should_try_to_fix_trx plugin_trx_info, options
           stale = true if fix_undefined_trx plugin_trx_info, context, options
         end
         stale
       end
 
-      def should_fix_trx(plugin_trx_info, options)
-        plugin_trx_info.status == :UNDEFINED and pass_delay_time plugin_trx_info, options
+      def should_try_to_fix_trx(plugin_trx_info, options)
+        plugin_trx_info.status == :UNDEFINED && pass_delay_time(plugin_trx_info, options)
       end
 
       def fix_undefined_trx(plugin_trx_info, context, options)
@@ -169,21 +169,25 @@ module Killbill #:nodoc:
         response_id = find_value_from_properties(plugin_trx_info.properties, 'orbital_response_id')
         response = OrbitalResponse.find_by(:id => response_id)
         updated = false
-        if should_cancel_payment inquiry_response, plugin_trx_info, options
-          @logger.info("Canceling UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
-          response.cancel
-          updated = true
-        elsif !inquiry_response.nil?
+        if should_update_response inquiry_response, plugin_trx_info
           logger.info("Fixing UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}', success='#{inquiry_response.success?}'")
           response.update_and_create_transaction(inquiry_response)
+          updated = true
+        elsif should_cancel_payment plugin_trx_info, options
+          @logger.info("Canceling UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
+          response.cancel
           updated = true
         end
         updated
       end
 
-      def should_cancel_payment(inquiry_response, plugin_trx_info, options)
+      def should_update_response(inquiry_response, plugin_trx_info)
+        !inquiry_response.nil? && !inquiry_response.params.nil? && inquiry_response.params['order_id'] == plugin_trx_info.second_payment_reference_id
+      end
+
+      def should_cancel_payment(plugin_trx_info, options)
         threshold = (Killbill::Plugin::ActiveMerchant::Utils.normalized(options, :cancel_threshold) || ONE_HOUR_AGO).to_i
-        inquiry_response.nil? && delay_since_trx(plugin_trx_info) >= threshold
+        delay_since_trx(plugin_trx_info) >= threshold
       end
 
       def pass_delay_time(plugin_trx_info, options)
@@ -211,8 +215,13 @@ module Killbill #:nodoc:
         gateway.inquiry(orbital_order_id, trace_number)
       end
 
-      def with_trace_num(properties)
-        {:params_trace_number => find_value_from_properties(properties, :trace_number)}
+      def with_trace_num_and_order_id(properties)
+        params = {}
+        trace_number = find_value_from_properties(properties, :trace_number)
+        params[:params_trace_number] = trace_number unless trace_number.blank?
+        order_id = find_value_from_properties(properties, :order_id)
+        params[:params_order_id] = order_id unless order_id.blank?
+        params
       end
 
     end
