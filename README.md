@@ -157,3 +157,5 @@ Plugin properties
 | payment_instrument_name      | ApplePay tokenization attribute                                   |
 | payment_network              | ApplePay tokenization attribute                                   |
 | transaction_identifier       | ApplePay tokenization attribute                                   |
+| order_id                     | Orbital order id                                                  |
+| trace_number                 | Trace number used for inquiry transaction information             |
