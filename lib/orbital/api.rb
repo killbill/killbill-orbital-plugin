@@ -1,7 +1,7 @@
 module Killbill #:nodoc:
   module Orbital #:nodoc:
     class PaymentPlugin < ::Killbill::Plugin::ActiveMerchant::PaymentPlugin
-      FIVE_MINUTES_AGO = (1 * 300)
+      FIVE_MINUTES_AGO = (5 * 60)
       ONE_HOUR_AGO = (1 * 3600)
 
       def initialize
