@@ -82,7 +82,7 @@ module Killbill #:nodoc:
       end
 
       def get_payment_info(kb_account_id, kb_payment_id, properties, context)
-        options = properties_to_hash properties
+        options = properties_to_hash(properties)
 
         plugin_trxs_info = super(kb_account_id, kb_payment_id, properties, context)
         return super(kb_account_id, kb_payment_id, properties, context) if try_fix_undefined_trxs(plugin_trxs_info, options, context)
@@ -161,7 +161,7 @@ module Killbill #:nodoc:
       end
 
       def fix_undefined_trx(plugin_trx_info, context, options)
-        inquiry_response = inquiry plugin_trx_info, context
+        inquiry_response = inquiry(plugin_trx_info, context)
         update_response_if_needed plugin_trx_info, inquiry_response, options
       end
 
