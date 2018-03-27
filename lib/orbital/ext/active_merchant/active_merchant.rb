@@ -42,7 +42,7 @@ module ActiveMerchant
                                      'Content-Type' => 'application/PTI70')
         headers['X-Request-Id'] = x_r_id unless x_r_id.blank?
         headers.merge!('Trace-number' => trace_number.to_s,
-                       'Merchant-Id' => @options[:merchant_id]) if @options[:retry_logic] && trace_number
+                       'Merchant-Id' => @options[:merchant_id]) if trace_number
         request = lambda { |url| parse(ssl_post(url, order, headers)) }
 
         # Failover URL will be attempted in the event of a connection error
@@ -59,7 +59,7 @@ module ActiveMerchant
                          :authorization => authorization_string(response[:tx_ref_num], response[:order_id]),
                          :test => self.test?,
                          :avs_result => OrbitalGateway::AVSResult.new(response[:avs_resp_code]),
-                         :cvv_result => OrbitalGateway::CVVResult.new(response[:cvv2_resp_code])
+                         :cvv_result => OrbitalGateway::CVVResult.new(response[:cvv2_resp_code]),
                      })
       end
 
@@ -137,6 +137,24 @@ module ActiveMerchant
       def credit(money, creditcard, options= {})
         order = build_new_order_xml_with_cc(REFUND, money, creditcard, options)
         commit(order, :credit, options[:trace_number])
+      end
+
+      def inquiry(order_id, retry_num)
+        query = build_inquiry_request(order_id, retry_num, options)
+        commit(query, :inquiry, options[:trace_number])
+      end
+
+      def build_inquiry_request(order_id, retry_num, options)
+        xml = xml_envelope
+        xml.tag! :Request do
+          xml.tag! :Inquiry do
+            add_xml_credentials(xml)
+            add_bin_merchant_and_terminal(xml, options)
+            xml.tag! :OrderID, order_id
+            xml.tag! :InquiryRetryNumber, retry_num
+          end
+        end
+        xml.target!
       end
 
       def build_new_order_xml_with_cc(operation, money, creditcard, options)
