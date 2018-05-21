@@ -78,6 +78,7 @@ shared_examples 'payment_flow_spec' do
     payment_response.amount.should == @amount
     payment_response.transaction_type.should == :AUTHORIZE
     find_value_from_properties(payment_response.properties, 'processorResponse').should == '100'
+    initial_order_id = payment_response.second_payment_reference_id
 
     # Try multiple partial captures
     partial_capture_amount = BigDecimal.new('10')
@@ -87,6 +88,7 @@ shared_examples 'payment_flow_spec' do
       payment_response.status.should eq(:PROCESSED), payment_response.gateway_error
       payment_response.amount.should == partial_capture_amount
       payment_response.transaction_type.should == :PURCHASE
+      payment_response.second_payment_reference_id.should == initial_order_id
     end
 
     # Try a partial refund

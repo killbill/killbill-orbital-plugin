@@ -43,6 +43,7 @@ module Killbill #:nodoc:
           raise "Unable to retrieve last authorization for operation=capture, kb_payment_id=#{kb_payment_id}, kb_payment_transaction_id=#{kb_payment_transaction_id}, kb_payment_method_id=#{kb_payment_method_id}" if last_auth_response.nil?
           options[:payment_processor_account_id] = last_auth_response.payment_processor_account_id
           options[:prior_auth_id] = last_auth_response.params_auth_code
+          options[:order_id] = last_auth_response.second_reference_id if options[:order_id].nil?
           purchase_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, hash_to_properties(options), context)
         else
           super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
