@@ -166,6 +166,7 @@ module ActiveMerchant
             add_managed_billing(xml, options)
           end
           add_network_tokenization(xml, creditcard)
+          add_mit_cit_params(xml, options)
         end
       end
 
