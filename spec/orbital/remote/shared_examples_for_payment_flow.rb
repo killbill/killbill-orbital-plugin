@@ -188,6 +188,10 @@ shared_examples 'payment_flow_spec' do
     check_old_new_response(response, :PURCHASE, 1, initial_auth, capture_response.first_payment_reference_id)
   end
 
+  it 'should persist mit transaction id' do
+
+  end
+
   def transition_last_response_to_UNDEFINED(expected_nb_transactions)
     Killbill::Orbital::OrbitalTransaction.last.delete
     response = Killbill::Orbital::OrbitalResponse.last

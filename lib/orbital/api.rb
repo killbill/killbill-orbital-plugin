@@ -49,9 +49,7 @@ module Killbill #:nodoc:
       end
 
       def purchase_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
-        # Pass extra parameters for the gateway here
-        options = {}
-
+        options = {:mit_reference_trx_id => find_mit_ref_trx_id_if_needed(properties)}
         properties = merge_properties(properties, options)
         super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
       end

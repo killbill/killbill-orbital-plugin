@@ -102,11 +102,13 @@ module ActiveMerchant
 
             set_recurring_ind(xml, parameters)
 
-            # Append Transaction Reference Number at the end for Refund transactions
+            # Append Transaction Reference Number for Refund transactions
             if action == REFUND && !parameters[:authorization].nil?
               tx_ref_num, _ = split_authorization(parameters[:authorization])
               xml.tag! :TxRefNum, tx_ref_num
             end
+
+            add_mit_cit_params(xml, parameters)
           end
         end
         xml.target!
@@ -166,8 +168,18 @@ module ActiveMerchant
             add_managed_billing(xml, options)
           end
           add_network_tokenization(xml, creditcard)
-          add_mit_cit_params(xml, options)
         end
+      end
+
+      def add_mit_cit_params(xml, options)
+        options.each {
+          |x| puts x
+        }
+        xml.tag! :MITMsgType, options[:mit_cit_type] unless options[:mit_cit_type].nil?
+        unless options[:credential_on_file].nil?
+          xml.tag! :MITStoredCredentialInd, (options[:credential_on_file] ? 'Y' : 'N')
+        end
+        xml.tag! :MITSubmittedTransactionId, options[:mit_reference_trx_id] unless options[:mit_reference_trx_id].nil?
       end
 
       def add_creditcard(xml, creditcard, options = {})
