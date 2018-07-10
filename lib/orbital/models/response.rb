@@ -157,7 +157,7 @@ module Killbill #:nodoc:
       end
 
       def self.find_cit_transaction_ref_id(kb_transaction_id, kb_tenant_id)
-        last_response = where(:kb_payment_transaction_id => kb_transaction_id, :kb_tenant_id => kb_tenant_id, :api_call => 'authorize').order(:created_at).last
+        last_response = where(:kb_payment_transaction_id => kb_transaction_id, :kb_tenant_id => kb_tenant_id).order(:created_at).last
         return nil if last_response.nil?
 
         return last_response.params_mit_received_transaction_id
@@ -172,6 +172,7 @@ module Killbill #:nodoc:
         t_info_plugin.properties << create_plugin_property('processorResponse', params_host_resp_code)
         t_info_plugin.properties << create_plugin_property('orbital_response_id', id)
         t_info_plugin.properties << create_plugin_property('trace_number', params_trace_number)
+        t_info_plugin.properties << create_plugin_property('mit_received_transaction_id', params_mit_received_transaction_id)
         t_info_plugin
       end
     end

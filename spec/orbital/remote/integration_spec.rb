@@ -21,7 +21,7 @@ describe Killbill::Orbital::PaymentPlugin do
 
   context 'credit card flow' do
     before(:each) do
-      @properties = build_pm_properties(nil, { :cc_number => '5454545454545454' })
+      @properties = build_pm_properties(nil, { :cc_number => '4444444444444448' })
       @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, {})
       @amount     = BigDecimal.new('100')
       @currency   = 'USD'

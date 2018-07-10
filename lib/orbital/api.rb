@@ -28,7 +28,8 @@ module Killbill #:nodoc:
       end
 
       def authorize_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
-        options = {:mit_reference_trx_id => find_mit_ref_trx_id_if_needed(properties)}
+        options = {:mit_reference_trx_id => find_mit_ref_trx_id_if_needed(find_value_from_properties(properties, :mit_ref_trx_id),
+                                                                          context.tenant_id)}
         properties = merge_properties(properties, options)
         super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
       end
@@ -49,7 +50,8 @@ module Killbill #:nodoc:
       end
 
       def purchase_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
-        options = {:mit_reference_trx_id => find_mit_ref_trx_id_if_needed(properties)}
+        options = {:mit_reference_trx_id => find_mit_ref_trx_id_if_needed(find_value_from_properties(properties, :mit_ref_trx_id),
+                                                                          context.tenant_id)}
         properties = merge_properties(properties, options)
         super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
       end
@@ -217,10 +219,9 @@ module Killbill #:nodoc:
          :params_order_id => find_value_from_properties(properties, :order_id)}.delete_if{|_, value| value.blank?}
       end
 
-      def find_mit_ref_trx_id_if_needed(properties)
-        ref_trx_id = find_value_from_properties(properties, :mit_ref_trx_id)
+      def find_mit_ref_trx_id_if_needed(ref_trx_id, tenant_id)
         return nil if ref_trx_id.nil?
-        return @response_model.send('find_cit_transaction_ref_id', kb_trx_id, context.tenant_id)
+        return @response_model.send('find_cit_transaction_ref_id', ref_trx_id, tenant_id)
       end
     end
   end
