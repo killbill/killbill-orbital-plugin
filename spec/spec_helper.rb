@@ -30,3 +30,11 @@ def create_payment
   [kb_payment_id, @kb_payment.transactions[0].id]
 end
 
+def merge_extra_properties(properties, extra_properties)
+  new_properties = properties.clone
+  extra_properties.each do |p|
+    new_properties << p
+  end
+  new_properties
+end
+

@@ -82,7 +82,7 @@ describe Killbill::Orbital::PaymentPlugin do
       if mit_ref_trx_id.nil?
         request_body.should_not match('<MITSubmittedTransactionId>')
       else
-        request_body.should match("<MITSubmittedTransactionId>#{mit_ref_trx_id}</MITSubmittedTransactionId>")
+        request_body.should match("<MITSubmittedTransactionID>#{mit_ref_trx_id}</MITSubmittedTransactionID>")
       end
 
       if credential_on_file.nil?

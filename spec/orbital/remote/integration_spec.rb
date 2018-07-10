@@ -1,5 +1,6 @@
 require 'spec_helper'
 require_relative 'shared_examples_for_payment_flow'
+require_relative 'shared_examples_for_visa_mit_cit_framework'
 
 ActiveMerchant::Billing::Base.mode = :test
 
@@ -28,6 +29,7 @@ describe Killbill::Orbital::PaymentPlugin do
     end
 
     include_examples 'payment_flow_spec'
+    include_examples 'visa_mit_cit_framework_spec'
   end
 
   context 'custom profile flow' do
@@ -107,5 +109,6 @@ describe Killbill::Orbital::PaymentPlugin do
     end
 
     include_examples 'payment_flow_spec'
+    include_examples 'visa_mit_cit_framework_spec'
   end
 end
