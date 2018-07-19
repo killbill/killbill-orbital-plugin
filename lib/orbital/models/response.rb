@@ -156,7 +156,7 @@ module Killbill #:nodoc:
         where(:kb_payment_id => kb_payment_id, :kb_tenant_id => kb_tenant_id, :api_call => 'authorize').order(:created_at)
       end
 
-      def self.find_cit_transaction_ref_id(kb_transaction_id, kb_tenant_id)
+      def self.find_mit_transaction_ref_id(kb_transaction_id, kb_tenant_id)
         last_response = where(:kb_payment_transaction_id => kb_transaction_id, :kb_tenant_id => kb_tenant_id).order(:created_at).last
         return nil if last_response.nil?
 

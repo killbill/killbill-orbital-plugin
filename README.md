@@ -16,7 +16,8 @@ Kill Bill compatibility
 Requirements
 ------------
 
-The plugin needs a database. The latest version of the schema can be found [here](https://github.com/killbill/killbill-orbital-plugin/blob/master/db/ddl.sql).
+The plugin needs a database. The latest version of the schema can be found [here](https://github.com/killbill/killbill-orbital-plugin/blob/master/db/ddl.sql). 
+Regarding the VISA MIT/CIT parameters in the request, it is the client or the control plugin's responsibility to decides if these parameters should be passed on VISA cards only or not. The plugin will send the parameters to Orbital regardless of the card type.
 
 Configuration
 -------------
@@ -159,3 +160,6 @@ Plugin properties
 | transaction_identifier       | ApplePay tokenization attribute                                   |
 | order_id                     | Orbital order id                                                  |
 | trace_number                 | Trace number used for inquiry transaction information             |
+| credential_on_file           | Indicates that the cardholder’s credentials are on-file with the merchant or not. |
+| mit_cit_type                 | Indicates the message type to be used for the message type records |
+| mit_ref_trx_id               | Kill Bill transaction ID used to locate the Transaction Reference Number returned in the corresponding CIT transaction.| 

@@ -221,7 +221,7 @@ module Killbill #:nodoc:
 
       def find_mit_ref_trx_id_if_needed(ref_trx_id, tenant_id)
         return nil if ref_trx_id.nil?
-        return @response_model.send('find_cit_transaction_ref_id', ref_trx_id, tenant_id)
+        return @response_model.send('find_mit_transaction_ref_id', ref_trx_id, tenant_id)
       end
     end
   end
