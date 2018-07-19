@@ -17,7 +17,7 @@ Requirements
 ------------
 
 The plugin needs a database. The latest version of the schema can be found [here](https://github.com/killbill/killbill-orbital-plugin/blob/master/db/ddl.sql). 
-Regarding the VISA MIT/CIT parameters in the request, it is the client or the control plugin's responsibility to decides if these parameters should be passed on VISA cards only or not. The plugin will send the parameters to Orbital regardless of the card type.
+Regarding the VISA MIT/CIT parameters in the request, it is the client or the control plugin's responsibility to decides if these parameters should be passed on VISA cards only or not. The plugin will just pass on these parameters to Orbital regardless of the card type.
 
 Configuration
 -------------
