@@ -77,6 +77,7 @@ module Killbill #:nodoc:
           :params_terminal_id => extract(response, 'terminal_id'),
           :params_tx_ref_idx => extract(response, 'tx_ref_idx'),
           :params_tx_ref_num => extract(response, 'tx_ref_num'),
+          :params_mit_received_transaction_id => extract(response, 'mit_received_transaction_id')
         }
       end
 
@@ -155,6 +156,13 @@ module Killbill #:nodoc:
         where(:kb_payment_id => kb_payment_id, :kb_tenant_id => kb_tenant_id, :api_call => 'authorize').order(:created_at)
       end
 
+      def self.find_mit_transaction_ref_id(kb_transaction_id, kb_tenant_id)
+        last_response = where(:kb_payment_transaction_id => kb_transaction_id, :kb_tenant_id => kb_tenant_id).order(:created_at).last
+        return nil if last_response.nil?
+
+        return last_response.params_mit_received_transaction_id
+      end
+
       def gateway_error_code
         params_resp_code
       end
@@ -164,6 +172,7 @@ module Killbill #:nodoc:
         t_info_plugin.properties << create_plugin_property('processorResponse', params_host_resp_code)
         t_info_plugin.properties << create_plugin_property('orbital_response_id', id)
         t_info_plugin.properties << create_plugin_property('trace_number', params_trace_number)
+        t_info_plugin.properties << create_plugin_property('mit_received_transaction_id', params_mit_received_transaction_id)
         t_info_plugin
       end
     end

@@ -1,5 +1,6 @@
 require 'spec_helper'
 require_relative 'shared_examples_for_payment_flow'
+require_relative 'shared_examples_for_visa_mit_cit_framework'
 
 ActiveMerchant::Billing::Base.mode = :test
 
@@ -21,13 +22,14 @@ describe Killbill::Orbital::PaymentPlugin do
 
   context 'credit card flow' do
     before(:each) do
-      @properties = build_pm_properties(nil, { :cc_number => '5454545454545454' })
+      @properties = build_pm_properties(nil, { :cc_number => '4444444444444448' })
       @pm         = create_payment_method(::Killbill::Orbital::OrbitalPaymentMethod, nil, @call_context.tenant_id, @properties, {})
       @amount     = BigDecimal.new('100')
       @currency   = 'USD'
     end
 
     include_examples 'payment_flow_spec'
+    include_examples 'visa_mit_cit_framework_spec'
   end
 
   context 'custom profile flow' do
@@ -107,5 +109,6 @@ describe Killbill::Orbital::PaymentPlugin do
     end
 
     include_examples 'payment_flow_spec'
+    include_examples 'visa_mit_cit_framework_spec'
   end
 end

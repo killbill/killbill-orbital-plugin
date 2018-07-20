@@ -5,7 +5,7 @@ module ActiveMerchant
 
     class OrbitalGateway
 
-      API_VERSION = '7.0.1'
+      API_VERSION = '7.5'
 
       def store(creditcard, options = {})
         response = add_customer_profile(creditcard, options)
@@ -39,7 +39,7 @@ module ActiveMerchant
         headers = POST_HEADERS.merge('Content-length' => order.size.to_s,
                                      'User-Agent' => user_agent,
                                      'Interface-Version' => 'Ruby|KillBill|Open-Source Gateway',
-                                     'Content-Type' => 'application/PTI70')
+                                     'Content-Type' => 'application/PTI74')
         headers['X-Request-Id'] = x_r_id unless x_r_id.blank?
         headers.merge!('Trace-number' => trace_number.to_s,
                        'Merchant-Id' => @options[:merchant_id]) if trace_number
@@ -102,11 +102,13 @@ module ActiveMerchant
 
             set_recurring_ind(xml, parameters)
 
-            # Append Transaction Reference Number at the end for Refund transactions
+            # Append Transaction Reference Number for Refund transactions
             if action == REFUND && !parameters[:authorization].nil?
               tx_ref_num, _ = split_authorization(parameters[:authorization])
               xml.tag! :TxRefNum, tx_ref_num
             end
+
+            add_mit_cit_params(xml, parameters)
           end
         end
         xml.target!
@@ -167,6 +169,14 @@ module ActiveMerchant
           end
           add_network_tokenization(xml, creditcard)
         end
+      end
+
+      def add_mit_cit_params(xml, options)
+        xml.tag! :MITMsgType, options[:mit_cit_type] unless options[:mit_cit_type].nil?
+        unless options[:credential_on_file].nil?
+          xml.tag! :MITStoredCredentialInd, (options[:credential_on_file] ? 'Y' : 'N')
+        end
+        xml.tag! :MITSubmittedTransactionID, options[:mit_reference_trx_id] unless options[:mit_reference_trx_id].nil?
       end
 
       def add_creditcard(xml, creditcard, options = {})

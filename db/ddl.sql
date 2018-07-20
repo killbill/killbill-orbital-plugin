@@ -118,6 +118,7 @@ CREATE TABLE orbital_responses (
   params_tx_ref_idx varchar(255) DEFAULT NULL,
   params_tx_ref_num varchar(255) DEFAULT NULL,
   params_trace_number varchar(16) DEFAULT NULL,
+  params_mit_received_transaction_id varchar(255) DEFAULT NULL,
   avs_result_code varchar(255) DEFAULT NULL,
   avs_result_message varchar(255) DEFAULT NULL,
   avs_result_street_match varchar(255) DEFAULT NULL,
@@ -132,3 +133,4 @@ CREATE TABLE orbital_responses (
   PRIMARY KEY (id)
 ) /*! ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_bin */;
 CREATE INDEX index_orbital_responses_kb_payment_id_kb_tenant_id ON orbital_responses(kb_payment_id, kb_tenant_id);
+CREATE INDEX index_orbital_responses_kb_payment_transaction_id_kb_tenant_id ON orbital_responses(kb_payment_transaction_id, kb_tenant_id);
