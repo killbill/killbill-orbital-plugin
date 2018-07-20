@@ -1,3 +1,6 @@
+0.1.11
+    Add support for VISA MIT/CIT parameters
+
 0.1.10
     Re-use order id for capture
 
