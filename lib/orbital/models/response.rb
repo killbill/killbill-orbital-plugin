@@ -175,6 +175,18 @@ module Killbill #:nodoc:
         t_info_plugin.properties << create_plugin_property('mit_received_transaction_id', params_mit_received_transaction_id)
         t_info_plugin
       end
+
+      def self.search_where_clause(t, search_key)
+        where_clause = super(t, search_key)
+        
+        search_fields = Killbill::Plugin::ActiveMerchant.glob_config[:search_fields]
+        if search_fields && search_fields.is_a?(Array)
+          where_clauses = search_fields.map { |search_field| t[search_field.to_sym].eq(search_key) }
+          where_clause = where_clauses.reduce(:or)
+        end
+
+        return where_clause
+      end
     end
   end
 end
