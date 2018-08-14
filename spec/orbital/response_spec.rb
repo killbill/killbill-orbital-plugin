@@ -61,7 +61,7 @@ describe Killbill::Orbital::OrbitalResponse do
         eos
       }
 
-      it 'should return the same where clause as ::Killbill::Plugin::ActiveMerchant::ActiveRecord::Response' do
+      it 'should return the where clause using the search_fields' do
         expect(subject).to eq("\"orbital_responses\".\"params_tx_ref_num\" = 'search_key'")
       end
     end
