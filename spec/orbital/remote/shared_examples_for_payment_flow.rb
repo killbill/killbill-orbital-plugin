@@ -212,6 +212,24 @@ shared_examples 'payment_flow_spec' do
     check_old_new_response(response, :CAPTURE, 1, initial_auth, capture_response.first_payment_reference_id)
   end
 
+  it 'should not fix undefined payment for regular capture if request is not sent through' do
+    @properties << build_property('trace_number', build_random_trace_num)
+    payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
+    response, initial_auth = transition_last_response_to_UNDEFINED(1)
+
+    fix_transaction(0)
+
+    # Compare the state of the old and new response
+    check_old_new_response(response, :AUTHORIZE, 0, initial_auth, payment_response.first_payment_reference_id)
+
+    capture_properties = merge_properties(@properties, {:trace_number =>  build_random_trace_num, :skip_gw => true})
+    @plugin.capture_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[1].id, @pm.kb_payment_method_id, @amount, @currency, capture_properties, @call_context)
+
+    # Force a transition to :UNDEFINED
+    transition_last_response_to_UNDEFINED(2)
+    fix_transaction(1, :UNDEFINED)
+  end
+
   def transition_last_response_to_UNDEFINED(expected_nb_transactions)
     Killbill::Orbital::OrbitalTransaction.last.delete
     response = Killbill::Orbital::OrbitalResponse.last
