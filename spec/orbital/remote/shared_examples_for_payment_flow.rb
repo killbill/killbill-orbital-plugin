@@ -156,7 +156,8 @@ shared_examples 'payment_flow_spec' do
 
   it 'should eventually transition UNDEFINED payment to CANCELLED' do
     properties = merge_properties(@properties, {'trace_number' => build_random_trace_num,
-                                                'skip_gw' => true})
+                                                'skip_gw' => true,
+                                                'order_id' => '123'})
     @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, properties, @call_context)
     transition_last_response_to_UNDEFINED(1)
 
@@ -190,6 +191,7 @@ shared_examples 'payment_flow_spec' do
 
   it 'should fix undefined payment for regular capture' do
     @properties << build_property('trace_number', build_random_trace_num)
+
     payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
     response, initial_auth = transition_last_response_to_UNDEFINED(1)
 
@@ -197,6 +199,11 @@ shared_examples 'payment_flow_spec' do
 
     # Compare the state of the old and new response
     check_old_new_response(response, :AUTHORIZE, 0, initial_auth, payment_response.first_payment_reference_id)
+
+    # Modify the target payment_transaction type to capture
+    @kb_payment.transactions[1].transaction_type = :CAPTURE
+    @kb_payment.transactions[1].amount = @amount
+    @kb_payment.transactions[1].currency = @currency
 
     capture_properties = merge_properties(@properties, {:trace_number =>  build_random_trace_num})
     capture_response = @plugin.capture_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[1].id, @pm.kb_payment_method_id, @amount, @currency, capture_properties, @call_context)
@@ -212,7 +219,7 @@ shared_examples 'payment_flow_spec' do
     check_old_new_response(response, :CAPTURE, 1, initial_auth, capture_response.first_payment_reference_id)
   end
 
-  it 'should not fix undefined payment for regular capture if request is not sent through' do
+  it 'should fix undefined payment for regular capture if request is not sent through' do
     @properties << build_property('trace_number', build_random_trace_num)
     payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
     response, initial_auth = transition_last_response_to_UNDEFINED(1)
@@ -222,12 +229,17 @@ shared_examples 'payment_flow_spec' do
     # Compare the state of the old and new response
     check_old_new_response(response, :AUTHORIZE, 0, initial_auth, payment_response.first_payment_reference_id)
 
+    # Modify the target payment_transaction type to capture
+    @kb_payment.transactions[1].transaction_type = :CAPTURE
+    @kb_payment.transactions[1].amount = @amount
+    @kb_payment.transactions[1].currency = @currency
+
     capture_properties = merge_properties(@properties, {:trace_number =>  build_random_trace_num, :skip_gw => true})
     @plugin.capture_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[1].id, @pm.kb_payment_method_id, @amount, @currency, capture_properties, @call_context)
 
     # Force a transition to :UNDEFINED
     transition_last_response_to_UNDEFINED(2)
-    fix_transaction(1, :UNDEFINED)
+    fix_transaction(1)
   end
 
   def transition_last_response_to_UNDEFINED(expected_nb_transactions)
@@ -267,7 +279,7 @@ shared_examples 'payment_flow_spec' do
     new_response = Killbill::Orbital::OrbitalResponse.last
     new_response.id.should == response.id
     new_response.api_call.should == transaction_type.to_s.downcase
-    new_response.kb_tenant_id.should == @call_context.tenant_id
+    new_response.kb_tenant_id.should == @call_context.tenant_id.to_s
     new_response.kb_account_id.should == @pm.kb_account_id
     new_response.kb_payment_id.should == @kb_payment.id
     new_response.kb_payment_transaction_id.should == @kb_payment.transactions[transaction_nb].id

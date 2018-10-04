@@ -169,17 +169,27 @@ module Killbill #:nodoc:
       end
 
       def fix_undefined_trx(plugin_trx_info, order_id, context, options)
-        inquiry_response = inquiry(plugin_trx_info, order_id, context)
-        update_response_if_needed plugin_trx_info, order_id, inquiry_response, options
+        payment_processor_account_id = find_value_from_properties(plugin_trx_info.properties, 'payment_processor_account_id')
+        trace_number = find_value_from_properties(plugin_trx_info.properties, 'trace_number')
+        return false if trace_number.nil? || order_id.nil? || payment_processor_account_id.nil?
+
+        gateway = lookup_gateway(payment_processor_account_id, context.tenant_id)
+        if plugin_trx_info.transaction_type == :CAPTURE
+          response, amount, currency = retry_capture(plugin_trx_info, order_id, trace_number, context, gateway)
+          update_response_if_needed plugin_trx_info, order_id, response, options, amount, currency
+        else
+          response = inquiry(order_id, trace_number, gateway)
+          update_response_if_needed plugin_trx_info, order_id, response, options
+        end
       end
 
-      def update_response_if_needed(plugin_trx_info, order_id, inquiry_response, options)
+      def update_response_if_needed(plugin_trx_info, order_id, inquiry_response, options, amount = nil, currency = nil)
         response_id = find_value_from_properties(plugin_trx_info.properties, 'orbital_response_id')
         response = OrbitalResponse.find_by(:id => response_id)
         updated = false
         if should_update_response inquiry_response, order_id
           logger.info("Fixing UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}', success='#{inquiry_response.success?}'")
-          response.update_and_create_transaction(inquiry_response)
+          response.update_and_create_transaction(inquiry_response, amount, currency)
           updated = true
         elsif should_cancel_payment plugin_trx_info, options
           @logger.info("Canceling UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
@@ -212,14 +222,23 @@ module Killbill #:nodoc:
         Time.parse(@clock.get_clock.get_utc_now.to_s)
       end
 
-      def inquiry(plugin_trx_info, order_id, context)
-        payment_processor_account_id = find_value_from_properties(plugin_trx_info.properties, 'payment_processor_account_id')
-        trace_number = find_value_from_properties(plugin_trx_info.properties, 'trace_number')
-
-        return nil if trace_number.nil? || order_id.nil? || payment_processor_account_id.nil?
-
-        gateway = lookup_gateway(payment_processor_account_id, context.tenant_id)
+      def inquiry(order_id, trace_number, gateway)
         gateway.inquiry(order_id, trace_number)
+      end
+
+      def retry_capture(plugin_trx_info, order_id, trace_number, context, gateway)
+        options = {:trace_number => trace_number, :order_id => order_id}
+        kb_payment = @kb_apis.payment_api.get_payment(plugin_trx_info.kb_payment_id, false, false, [], nil)
+        kb_transaction = kb_payment.transactions.detect {|trx| trx.id == plugin_trx_info.kb_transaction_payment_id}
+        linked_trx = @transaction_model.authorizations_from_kb_payment_id(plugin_trx_info.kb_payment_id, context.tenant_id).last
+
+        amount = kb_transaction.amount
+        currency = kb_transaction.currency
+        return [gateway.capture(to_cents(amount, currency),
+                               linked_trx.txn_id,
+                               options),
+                amount,
+                currency]
       end
 
       def with_trace_num_and_order_id(properties)

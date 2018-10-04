@@ -110,9 +110,9 @@ module Killbill #:nodoc:
         update!(updated_attributes)
       end
 
-      def update_and_create_transaction(gw_response)
+      def update_and_create_transaction(gw_response, amount = nil, currency = nil)
         updated_attributes = {
-            :message => gw_response.message,
+            :message => (gw_response.success? && gw_response.message.nil?) ? "" : gw_response.message,
             :authorization => gw_response.authorization,
             :fraud_review => gw_response.fraud_review?,
             :test => gw_response.test?,
@@ -127,15 +127,15 @@ module Killbill #:nodoc:
         }.merge(OrbitalResponse.orbital_response_params(gw_response))
 
         # Keep original values as much as possible
-        updated_attributes.delete_if { |k, v| v.blank? }
+        updated_attributes.delete_if { |k, v| v.blank? && k != :message}
 
         # Update the response row
         update!(updated_attributes)
 
         # Create the transaction row if needed (cannot have been created before or the state wouldn't have been UNDEFINED)
         if gw_response.success?
-          amount = gw_response.params['amount']
-          currency = gw_response.params['currency']
+          amount = amount.nil? ? gw_response.params['amount'] : amount
+          currency = currency.nil? ? gw_response.params['currency'] : currency
           amount_in_cents = amount.nil? ? nil : ::Monetize.from_numeric(amount.to_f, currency).cents.to_i
           build_orbital_transaction(:kb_account_id => kb_account_id,
                                     :kb_tenant_id => kb_tenant_id,
