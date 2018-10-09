@@ -148,29 +148,48 @@ module Killbill #:nodoc:
 
       def try_fix_undefined_trxs(plugin_trxs_info, options, context)
         stale = false
+        auth_order_id = find_auth_order_id(plugin_trxs_info)
         plugin_trxs_info.each do |plugin_trx_info|
           next unless should_try_to_fix_trx plugin_trx_info, options
-          stale = true if fix_undefined_trx plugin_trx_info, context, options
+          # Resort to auth order id for scenarios like MarkForCapture where Orbital Order Id is not persisted
+          # when remote call fails.
+          order_id = plugin_trx_info.second_payment_reference_id.nil? ? auth_order_id : plugin_trx_info.second_payment_reference_id
+          stale = true if fix_undefined_trx plugin_trx_info, order_id, context, options
         end
         stale
+      end
+
+      def find_auth_order_id(plugin_trxs_info)
+        auth_plugin_info_with_order_id = plugin_trxs_info.find { |info| info.transaction_type == :AUTHORIZE && !info.second_payment_reference_id.nil? }
+        return auth_plugin_info_with_order_id.nil? ? nil : auth_plugin_info_with_order_id.second_payment_reference_id
       end
 
       def should_try_to_fix_trx(plugin_trx_info, options)
         plugin_trx_info.status == :UNDEFINED && pass_delay_time(plugin_trx_info, options)
       end
 
-      def fix_undefined_trx(plugin_trx_info, context, options)
-        inquiry_response = inquiry(plugin_trx_info, context)
-        update_response_if_needed plugin_trx_info, inquiry_response, options
+      def fix_undefined_trx(plugin_trx_info, order_id, context, options)
+        payment_processor_account_id = find_value_from_properties(plugin_trx_info.properties, 'payment_processor_account_id')
+        trace_number = find_value_from_properties(plugin_trx_info.properties, 'trace_number')
+        return false if trace_number.nil? || order_id.nil? || payment_processor_account_id.nil?
+
+        gateway = lookup_gateway(payment_processor_account_id, context.tenant_id)
+        if plugin_trx_info.transaction_type == :CAPTURE
+          response, amount, currency = retry_capture(plugin_trx_info, order_id, trace_number, context, gateway)
+          update_response_if_needed plugin_trx_info, order_id, response, options, amount, currency
+        else
+          response = inquiry(order_id, trace_number, gateway)
+          update_response_if_needed plugin_trx_info, order_id, response, options
+        end
       end
 
-      def update_response_if_needed(plugin_trx_info, inquiry_response, options)
+      def update_response_if_needed(plugin_trx_info, order_id, inquiry_response, options, amount = nil, currency = nil)
         response_id = find_value_from_properties(plugin_trx_info.properties, 'orbital_response_id')
         response = OrbitalResponse.find_by(:id => response_id)
         updated = false
-        if should_update_response inquiry_response, plugin_trx_info
+        if should_update_response inquiry_response, order_id
           logger.info("Fixing UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}', success='#{inquiry_response.success?}'")
-          response.update_and_create_transaction(inquiry_response)
+          response.update_and_create_transaction(inquiry_response, amount, currency)
           updated = true
         elsif should_cancel_payment plugin_trx_info, options
           @logger.info("Canceling UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
@@ -180,8 +199,8 @@ module Killbill #:nodoc:
         updated
       end
 
-      def should_update_response(inquiry_response, plugin_trx_info)
-        !inquiry_response.nil? && !inquiry_response.params.nil? && inquiry_response.params['order_id'] == plugin_trx_info.second_payment_reference_id
+      def should_update_response(inquiry_response, order_id)
+        !inquiry_response.nil? && !inquiry_response.params.nil? && inquiry_response.params['order_id'] == order_id
       end
 
       def should_cancel_payment(plugin_trx_info, options)
@@ -203,15 +222,23 @@ module Killbill #:nodoc:
         Time.parse(@clock.get_clock.get_utc_now.to_s)
       end
 
-      def inquiry(plugin_trx_info, context)
-        payment_processor_account_id = find_value_from_properties(plugin_trx_info.properties, 'payment_processor_account_id')
-        trace_number = find_value_from_properties(plugin_trx_info.properties, 'trace_number')
-        orbital_order_id = plugin_trx_info.second_payment_reference_id
+      def inquiry(order_id, trace_number, gateway)
+        gateway.inquiry(order_id, trace_number)
+      end
 
-        return nil if trace_number.nil? || orbital_order_id.nil? || payment_processor_account_id.nil?
+      def retry_capture(plugin_trx_info, order_id, trace_number, context, gateway)
+        options = {:trace_number => trace_number, :order_id => order_id}
+        kb_payment = @kb_apis.payment_api.get_payment(plugin_trx_info.kb_payment_id, false, false, [], nil)
+        kb_transaction = kb_payment.transactions.detect {|trx| trx.id == plugin_trx_info.kb_transaction_payment_id}
+        linked_trx = @transaction_model.authorizations_from_kb_payment_id(plugin_trx_info.kb_payment_id, context.tenant_id).last
 
-        gateway = lookup_gateway(payment_processor_account_id, context.tenant_id)
-        gateway.inquiry(orbital_order_id, trace_number)
+        amount = kb_transaction.amount
+        currency = kb_transaction.currency
+        return [gateway.capture(to_cents(amount, currency),
+                               linked_trx.txn_id,
+                               options),
+                amount,
+                currency]
       end
 
       def with_trace_num_and_order_id(properties)

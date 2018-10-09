@@ -145,8 +145,8 @@ shared_examples 'payment_flow_spec' do
   end
 
   it 'should not fix undefined payment without a matching record from Orbital' do
-    properties = merge_properties(@properties, {'trace_number' => '1',
-                                                'order_id' => '123412',
+    properties = merge_properties(@properties, {'trace_number' => build_random_trace_num,
+                                                'order_id'  => '123412',
                                                 'skip_gw' => 'true'})
     @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, properties, @call_context)
     transition_last_response_to_UNDEFINED(1)
@@ -155,8 +155,9 @@ shared_examples 'payment_flow_spec' do
   end
 
   it 'should eventually transition UNDEFINED payment to CANCELLED' do
-    properties = merge_properties(@properties, {'trace_number' => '1',
-                                                'skip_gw' => 'true'})
+    properties = merge_properties(@properties, {'trace_number' => build_random_trace_num,
+                                                'skip_gw' => true,
+                                                'order_id' => '123'})
     @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, properties, @call_context)
     transition_last_response_to_UNDEFINED(1)
 
@@ -166,8 +167,8 @@ shared_examples 'payment_flow_spec' do
     transaction_info_plugins.last.status.should eq(:CANCELED)
   end
 
-  it 'should fix undefined payment' do
-    @properties << build_property('trace_number', '1')
+  it 'should fix undefined payment for force_capture' do
+    @properties << build_property('trace_number', build_random_trace_num)
     payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
     response, initial_auth = transition_last_response_to_UNDEFINED(1)
 
@@ -176,7 +177,7 @@ shared_examples 'payment_flow_spec' do
     # Compare the state of the old and new response
     check_old_new_response(response, :AUTHORIZE, 0, initial_auth, payment_response.first_payment_reference_id)
 
-    capture_properties = merge_properties(@properties, {:force_capture => true, :trace_number => '2'})
+    capture_properties = merge_properties(@properties, {:force_capture => true, :trace_number => build_random_trace_num})
     capture_response = @plugin.capture_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[1].id, @pm.kb_payment_method_id, @amount, @currency, capture_properties, @call_context)
 
     # Force a transition to :UNDEFINED
@@ -186,6 +187,62 @@ shared_examples 'payment_flow_spec' do
 
     # Compare the state of the old and new response
     check_old_new_response(response, :PURCHASE, 1, initial_auth, capture_response.first_payment_reference_id)
+  end
+
+  it 'should fix undefined payment for regular capture' do
+    @properties << build_property('trace_number', build_random_trace_num)
+
+    payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
+    response, initial_auth = transition_last_response_to_UNDEFINED(1)
+
+    fix_transaction(0)
+
+    # Compare the state of the old and new response
+    check_old_new_response(response, :AUTHORIZE, 0, initial_auth, payment_response.first_payment_reference_id)
+
+    # Modify the target payment_transaction type to capture
+    @kb_payment.transactions[1].transaction_type = :CAPTURE
+    @kb_payment.transactions[1].amount = @amount
+    @kb_payment.transactions[1].currency = @currency
+
+    capture_properties = merge_properties(@properties, {:trace_number =>  build_random_trace_num})
+    capture_response = @plugin.capture_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[1].id, @pm.kb_payment_method_id, @amount, @currency, capture_properties, @call_context)
+
+    # Force a transition to :UNDEFINED
+    response, initial_auth = transition_last_response_to_UNDEFINED(2)
+    transaction_info_plugins = @plugin.get_payment_info(@pm.kb_account_id, @kb_payment.id,  [build_property('skip_gw', 'true')], @call_context)
+    @plugin.send(:find_auth_order_id, transaction_info_plugins).should == payment_response.second_payment_reference_id
+
+    fix_transaction(1)
+
+    # Compare the state of the old and new response
+    check_old_new_response(response, :CAPTURE, 1, initial_auth, capture_response.first_payment_reference_id)
+  end
+
+  it 'should fix undefined payment for regular capture if request is not sent through' do
+    @properties << build_property('trace_number', build_random_trace_num)
+    payment_response = @plugin.authorize_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[0].id, @pm.kb_payment_method_id, @amount, @currency, @properties, @call_context)
+    auth_response, initial_auth = transition_last_response_to_UNDEFINED(1)
+
+    fix_transaction(0)
+
+    # Compare the state of the old and new response
+    check_old_new_response(auth_response, :AUTHORIZE, 0, initial_auth, payment_response.first_payment_reference_id)
+
+    # Modify the target payment_transaction type to capture
+    @kb_payment.transactions[1].transaction_type = :CAPTURE
+    @kb_payment.transactions[1].amount = @amount
+    @kb_payment.transactions[1].currency = @currency
+
+    capture_properties = merge_properties(@properties, {:trace_number =>  build_random_trace_num, :skip_gw => true})
+    capture_response = @plugin.capture_payment(@pm.kb_account_id, @kb_payment.id, @kb_payment.transactions[1].id, @pm.kb_payment_method_id, @amount, @currency, capture_properties, @call_context)
+
+    # Force a transition to :UNDEFINED
+    response, _ = transition_last_response_to_UNDEFINED(2)
+    fix_transaction(1)
+
+    # Compare the state of the old and new response
+    check_old_new_response(response, :CAPTURE, 1, initial_auth, nil, true, auth_response.params_order_id)
   end
 
   def transition_last_response_to_UNDEFINED(expected_nb_transactions)
@@ -221,11 +278,11 @@ shared_examples 'payment_flow_spec' do
     transaction_info_plugins.last.status.should eq(expected_state)
   end
 
-  def check_old_new_response(response, transaction_type, transaction_nb, initial_auth, request_id)
+  def check_old_new_response(response, transaction_type, transaction_nb, initial_auth, request_id, gateway_retry = false, expected_order_id = nil)
     new_response = Killbill::Orbital::OrbitalResponse.last
     new_response.id.should == response.id
     new_response.api_call.should == transaction_type.to_s.downcase
-    new_response.kb_tenant_id.should == @call_context.tenant_id
+    new_response.kb_tenant_id.should == @call_context.tenant_id.to_s
     new_response.kb_account_id.should == @pm.kb_account_id
     new_response.kb_payment_id.should == @kb_payment.id
     new_response.kb_payment_transaction_id.should == @kb_payment.transactions[transaction_nb].id
@@ -233,11 +290,18 @@ shared_examples 'payment_flow_spec' do
     new_response.payment_processor_account_id.should == 'default'
     new_response.authorization.should == initial_auth
     new_response.test.should be_true
-    new_response.params_order_id.should == response.params_order_id
-    new_response.params_tx_ref_num.should == response.params_tx_ref_num
-    new_response.params_trace_number.should == response.params_trace_number
-    new_response.params_avs_resp_code.should == response.params_avs_resp_code unless response.params_avs_resp_code.nil?
     new_response.success.should be_true
+    new_response.params_order_id.should == (expected_order_id.nil? ? response.params_order_id : expected_order_id)
+    unless(gateway_retry)
+      new_response.params_tx_ref_num.should == response.params_tx_ref_num
+      new_response.params_trace_number.should == response.params_trace_number
+      new_response.params_avs_resp_code.should == response.params_avs_resp_code unless response.params_avs_resp_code.nil?
+      new_response.params_tx_ref_num.should == request_id
+    end
+  end
+
+  def build_random_trace_num
+    rand(1000000).to_s
   end
 
   def zero_janitor_delay_property

@@ -133,7 +133,7 @@ module ActiveMerchant
 
       # MFC - Mark For Capture or Force capture
       def capture(money, authorization, options = {})
-        commit(build_mark_for_capture_xml(money, authorization, options), :capture)
+        commit(build_mark_for_capture_xml(money, authorization, options), :capture, options[:trace_number])
       end
 
       def credit(money, creditcard, options= {})
