@@ -1,3 +1,9 @@
+0.1.13
+    Use the actual retry for janitor flow on MarkForCapture because inquiry is not supported on MarkForCapture.
+
+0.1.12
+    Make search_where_clause configurable
+
 0.1.11
     Add support for VISA MIT/CIT parameters
 
