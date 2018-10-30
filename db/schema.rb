@@ -1,6 +1,6 @@
 require 'active_record'
 
-ActiveRecord::Schema.define(:version => 20140410153635) do
+ActiveRecord::Schema.define(:version => 20190112105149) do
   create_table "orbital_payment_methods", :force => true do |t|
     t.string   "kb_payment_method_id"      # NULL before Kill Bill knows about it
     t.string   "token"                     # orbital id
