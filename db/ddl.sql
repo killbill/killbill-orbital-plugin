@@ -135,3 +135,4 @@ CREATE TABLE orbital_responses (
 CREATE INDEX index_orbital_responses_kb_payment_id_kb_tenant_id ON orbital_responses(kb_payment_id, kb_tenant_id);
 CREATE INDEX index_orbital_responses_kb_payment_transaction_id_kb_tenant_id ON orbital_responses(kb_payment_transaction_id, kb_tenant_id);
 CREATE INDEX index_orbital_responses_params_tx_ref_num_kb_tenant_id ON orbital_responses(params_tx_ref_num, kb_tenant_id);
+CREATE INDEX index_orbital_responses_success ON orbital_responses(success);
