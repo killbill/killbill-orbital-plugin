@@ -195,6 +195,8 @@ module Killbill #:nodoc:
           @logger.info("Canceling UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
           response.cancel
           updated = true
+        else
+          @logger.info("Attempted to fix UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}' but unsuccessful")
         end
         updated
       end
@@ -228,7 +230,7 @@ module Killbill #:nodoc:
 
       def retry_capture(plugin_trx_info, order_id, trace_number, context, gateway)
         options = {:trace_number => trace_number, :order_id => order_id}
-        kb_payment = @kb_apis.payment_api.get_payment(plugin_trx_info.kb_payment_id, false, false, [], nil)
+        kb_payment = @kb_apis.payment_api.get_payment(plugin_trx_info.kb_payment_id, false, false, [], context)
         kb_transaction = kb_payment.transactions.detect {|trx| trx.id == plugin_trx_info.kb_transaction_payment_id}
         linked_trx = @transaction_model.authorizations_from_kb_payment_id(plugin_trx_info.kb_payment_id, context.tenant_id).last
 
