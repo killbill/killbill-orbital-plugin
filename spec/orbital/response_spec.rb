@@ -66,4 +66,12 @@ describe Killbill::Orbital::OrbitalResponse do
       end
     end
   end
+
+  describe '.max_nb_records' do
+    subject { described_class.max_nb_records }
+
+    it 'should be equal to a fixed number 20001' do
+      expect(subject).to eq(20001)
+    end
+  end
 end

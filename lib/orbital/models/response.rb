@@ -187,6 +187,11 @@ module Killbill #:nodoc:
 
         return where_clause
       end
+
+      # not needed, put a big number beyond the accurate limit (20k) here to make the pagination work
+      def self.max_nb_records
+        20001
+      end
     end
   end
 end
