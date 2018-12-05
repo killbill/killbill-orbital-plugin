@@ -6,6 +6,8 @@ module Killbill #:nodoc:
 
       has_one :orbital_transaction
 
+      scope :succeeded, -> { where(:success => true) }
+
       def self.from_response(api_call, kb_account_id, kb_payment_id, kb_payment_transaction_id, transaction_type, payment_processor_account_id, kb_tenant_id, response, extra_params = {}, model = ::Killbill::Orbital::OrbitalResponse)
         super(api_call,
               kb_account_id,
@@ -188,9 +190,14 @@ module Killbill #:nodoc:
         return where_clause
       end
 
-      # not needed, put a big number beyond the accurate limit (20k) here to make the pagination work
+      SIMPLE_PAGINATION_THRESHOLD = 20000
+
       def self.max_nb_records
-        20001
+        if self.succeeded.limit(1).offset(SIMPLE_PAGINATION_THRESHOLD).nil?
+          self.succeeded.count
+        else
+          SIMPLE_PAGINATION_THRESHOLD + 1
+        end
       end
     end
   end
