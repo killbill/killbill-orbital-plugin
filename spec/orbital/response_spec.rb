@@ -66,4 +66,29 @@ describe Killbill::Orbital::OrbitalResponse do
       end
     end
   end
+
+  describe '.max_nb_records' do
+    before(:each) do
+      described_class.stub_chain(:succeeded, :limit, :offset, :nil?).and_return(target_response_nil?)
+    end
+
+    subject { described_class.max_nb_records }
+
+    context 'when the target response exists' do
+      let(:target_response_nil?) { false }
+
+      it { should eq(described_class::SIMPLE_PAGINATION_THRESHOLD + 1) }
+    end
+
+    context 'when the target response does not exist' do
+      let(:target_response_nil?) { true }
+      let(:success_response_count) { 123 }
+
+      before(:all) do
+        described_class.stub_chain(:succeeded, :count).and_return(success_response_count)
+      end
+
+      it { should eq(success_response_count) }
+    end
+  end
 end
