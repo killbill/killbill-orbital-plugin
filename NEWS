@@ -1,3 +1,6 @@
+0.1.15
+    Improve search performance on very large datasets
+
 0.1.14
     Add orbital_responses(params_tx_ref_num, kb_tenant_id) index
     Fix retry_capture implementation
