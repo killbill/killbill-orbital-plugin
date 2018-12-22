@@ -179,9 +179,11 @@ module Killbill #:nodoc:
 
         gateway = lookup_gateway(payment_processor_account_id, context.tenant_id)
         if plugin_trx_info.transaction_type == :CAPTURE
+          logger.info("Attempt to fix UNDEFINED capture for kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
           response, amount, currency = retry_capture(plugin_trx_info, order_id, authorization, trace_number, context, gateway)
           update_response_if_needed plugin_trx_info, order_id, response, options, amount, currency
         else
+          logger.info("Attempt to query UNDEFINED transaction for kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
           response = inquiry(order_id, trace_number, gateway)
           update_response_if_needed plugin_trx_info, order_id, response, options
         end
