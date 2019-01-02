@@ -1,3 +1,7 @@
+0.1.16
+    Fix retry_capture implementation
+    Add logging for tracking capture retry
+
 0.1.15
     Improve search performance on very large datasets
 
