@@ -211,7 +211,9 @@ shared_examples 'payment_flow_spec' do
     # Force a transition to :UNDEFINED
     response, initial_auth = transition_last_response_to_UNDEFINED(2)
     transaction_info_plugins = @plugin.get_payment_info(@pm.kb_account_id, @kb_payment.id,  [build_property('skip_gw', 'true')], @call_context)
-    @plugin.send(:find_auth_order_id, transaction_info_plugins).should == payment_response.second_payment_reference_id
+    @plugin.send(:find_auth_order_id_and_authorization, transaction_info_plugins).should ==
+        [payment_response.second_payment_reference_id,
+         find_value_from_properties(payment_response.properties, 'authorization')]
 
     fix_transaction(1)
 

@@ -148,36 +148,42 @@ module Killbill #:nodoc:
 
       def try_fix_undefined_trxs(plugin_trxs_info, options, context)
         stale = false
-        auth_order_id = find_auth_order_id(plugin_trxs_info)
+        auth_order_id, authorization = find_auth_order_id_and_authorization(plugin_trxs_info)
         plugin_trxs_info.each do |plugin_trx_info|
           next unless should_try_to_fix_trx plugin_trx_info, options
           # Resort to auth order id for scenarios like MarkForCapture where Orbital Order Id is not persisted
           # when remote call fails.
           order_id = plugin_trx_info.second_payment_reference_id.nil? ? auth_order_id : plugin_trx_info.second_payment_reference_id
-          stale = true if fix_undefined_trx plugin_trx_info, order_id, context, options
+          stale = true if fix_undefined_trx plugin_trx_info, order_id, authorization, context, options
         end
         stale
       end
 
-      def find_auth_order_id(plugin_trxs_info)
-        auth_plugin_info_with_order_id = plugin_trxs_info.find { |info| info.transaction_type == :AUTHORIZE && !info.second_payment_reference_id.nil? }
-        return auth_plugin_info_with_order_id.nil? ? nil : auth_plugin_info_with_order_id.second_payment_reference_id
+      def find_auth_order_id_and_authorization(plugin_trxs_info)
+        auth_plugin_info = plugin_trxs_info.find { |info| info.transaction_type == :AUTHORIZE && !info.second_payment_reference_id.nil? }
+        if auth_plugin_info.nil?
+          return [nil, nil]
+        end
+        [auth_plugin_info.second_payment_reference_id,
+         find_value_from_properties(auth_plugin_info.properties, 'authorization')]
       end
 
       def should_try_to_fix_trx(plugin_trx_info, options)
         plugin_trx_info.status == :UNDEFINED && pass_delay_time(plugin_trx_info, options)
       end
 
-      def fix_undefined_trx(plugin_trx_info, order_id, context, options)
+      def fix_undefined_trx(plugin_trx_info, order_id, authorization, context, options)
         payment_processor_account_id = find_value_from_properties(plugin_trx_info.properties, 'payment_processor_account_id')
         trace_number = find_value_from_properties(plugin_trx_info.properties, 'trace_number')
         return false if trace_number.nil? || order_id.nil? || payment_processor_account_id.nil?
 
         gateway = lookup_gateway(payment_processor_account_id, context.tenant_id)
         if plugin_trx_info.transaction_type == :CAPTURE
-          response, amount, currency = retry_capture(plugin_trx_info, order_id, trace_number, context, gateway)
+          logger.info("Attempt to fix UNDEFINED capture for kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
+          response, amount, currency = retry_capture(plugin_trx_info, order_id, authorization, trace_number, context, gateway)
           update_response_if_needed plugin_trx_info, order_id, response, options, amount, currency
         else
+          logger.info("Attempt to query UNDEFINED transaction for kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
           response = inquiry(order_id, trace_number, gateway)
           update_response_if_needed plugin_trx_info, order_id, response, options
         end
@@ -228,17 +234,18 @@ module Killbill #:nodoc:
         gateway.inquiry(order_id, trace_number)
       end
 
-      def retry_capture(plugin_trx_info, order_id, trace_number, context, gateway)
+      def retry_capture(plugin_trx_info, order_id, authorization, trace_number, context, gateway)
         options = {:trace_number => trace_number, :order_id => order_id}
-        kb_payment = @kb_apis.payment_api.get_payment(plugin_trx_info.kb_payment_id, false, false, [], context)
+
+        # Pass a cloned object of context to avoid being modified in get_payment via to_java
+        kb_payment = @kb_apis.payment_api.get_payment(plugin_trx_info.kb_payment_id, false, false, [], context.clone)
         kb_transaction = kb_payment.transactions.detect {|trx| trx.id == plugin_trx_info.kb_transaction_payment_id}
-        linked_trx = @transaction_model.authorizations_from_kb_payment_id(plugin_trx_info.kb_payment_id, context.tenant_id).last
 
         amount = kb_transaction.amount
         currency = kb_transaction.currency
         return [gateway.capture(to_cents(amount, currency),
-                               linked_trx.txn_id,
-                               options),
+                                authorization,
+                                options),
                 amount,
                 currency]
       end
