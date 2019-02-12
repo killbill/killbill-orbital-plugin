@@ -134,4 +134,5 @@ ActiveRecord::Schema.define(:version => 20181029172615) do
 
   add_index(:orbital_responses, [:kb_payment_id, :kb_tenant_id])
   add_index(:orbital_responses, [:params_tx_ref_num, :kb_tenant_id])
+  add_index(:orbital_responses, [:kb_payment_transaction_id, :kb_tenant_id])
 end
