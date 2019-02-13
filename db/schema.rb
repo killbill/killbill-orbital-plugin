@@ -1,6 +1,6 @@
 require 'active_record'
 
-ActiveRecord::Schema.define(:version => 20140410153635) do
+ActiveRecord::Schema.define(:version => 20190112105149) do
   create_table "orbital_payment_methods", :force => true do |t|
     t.string   "kb_payment_method_id"      # NULL before Kill Bill knows about it
     t.string   "token"                     # orbital id
@@ -132,4 +132,6 @@ ActiveRecord::Schema.define(:version => 20140410153635) do
   end
 
   add_index(:orbital_responses, [:kb_payment_id, :kb_tenant_id])
+  add_index(:orbital_responses, [:params_tx_ref_num, :kb_tenant_id])
+  add_index(:orbital_responses, [:kb_payment_transaction_id, :kb_tenant_id])
 end
