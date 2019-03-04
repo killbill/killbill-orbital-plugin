@@ -132,5 +132,5 @@ CREATE TABLE orbital_responses (
   PRIMARY KEY (id)
 ) /*! ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_bin */;
 CREATE INDEX index_orbital_responses_kb_payment_id_kb_tenant_id ON orbital_responses(kb_payment_id, kb_tenant_id);
-CREATE INDEX index_orbital_responses_kb_payment_transaction_id_kb_tenant_id ON orbital_responses(kb_payment_transaction_id, kb_tenant_id);
+CREATE INDEX index_orbital_responses_kb_payment_txn_id_kb_tenant_id ON orbital_responses(kb_payment_transaction_id, kb_tenant_id);
 CREATE INDEX index_orbital_responses_params_tx_ref_num_kb_tenant_id ON orbital_responses(params_tx_ref_num, kb_tenant_id);
