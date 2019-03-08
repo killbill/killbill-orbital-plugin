@@ -133,5 +133,5 @@ ActiveRecord::Schema.define(:version => 20190112105149) do
 
   add_index(:orbital_responses, [:kb_payment_id, :kb_tenant_id])
   add_index(:orbital_responses, [:params_tx_ref_num, :kb_tenant_id])
-  add_index(:orbital_responses, [:kb_payment_transaction_id, :kb_tenant_id])
+  add_index(:orbital_responses, [:kb_payment_transaction_id, :kb_tenant_id], :name => 'index_orbital_responses_kb_payment_txn_id_kb_tenant_id')
 end
