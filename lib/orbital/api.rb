@@ -3,6 +3,7 @@ module Killbill #:nodoc:
     class PaymentPlugin < ::Killbill::Plugin::ActiveMerchant::PaymentPlugin
       FIVE_MINUTES_AGO = (5 * 60)
       ONE_HOUR_AGO = (1 * 3600)
+      THIRTEEN_MONTHS_AGO = (24 * 60 * 60 * 30 * 13)
 
       def initialize
         gateway_builder = Proc.new do |config|
@@ -75,6 +76,10 @@ module Killbill #:nodoc:
       end
 
       def refund_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
+        if should_credit?(kb_payment_id, context, properties)
+        # Note: from the plugin perspective, this transaction is a CREDIT but Kill Bill doesn't care about PaymentTransactionInfoPlugin#TransactionType
+          return credit_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
+        end
         # Pass extra parameters for the gateway here
         options = {}
 
@@ -144,6 +149,15 @@ module Killbill #:nodoc:
 
       def reset_payment_methods(kb_account_id, payment_methods, properties, context)
         super
+      end
+
+      def should_credit?(kb_payment_id, context, options = {})
+        transaction = @transaction_model.find_candidate_transaction_for_refund(kb_payment_id, context.tenant_id)
+        return false if transaction.nil?
+
+        threshold = (Killbill::Plugin::ActiveMerchant::Utils.normalized(options, :janitor_delay_threshold) || THIRTEEN_MONTHS_AGO).to_i
+        options[:payment_processor_account_id] ||= transaction.payment_processor_account_id
+        (now - transaction.created_at) >= threshold
       end
 
       private
