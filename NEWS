@@ -1,3 +1,23 @@
+0.1.16
+    Fix retry_capture implementation
+    Add logging for tracking capture retry
+
+0.1.15
+    Improve search performance on very large datasets
+
+0.1.14
+    Add orbital_responses(params_tx_ref_num, kb_tenant_id) index
+    Fix retry_capture implementation
+
+0.1.13
+    Use the actual retry for janitor flow on MarkForCapture because inquiry is not supported on MarkForCapture.
+
+0.1.12
+    Make search_where_clause configurable
+
+0.1.11
+    Add support for VISA MIT/CIT parameters
+
 0.1.10
     Re-use order id for capture
 

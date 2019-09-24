@@ -118,6 +118,7 @@ ActiveRecord::Schema.define(:version => 20190112105149) do
     t.string   "params_tx_ref_idx"
     t.string   "params_tx_ref_num"
     t.string   "params_trace_number"
+    t.string   "params_mit_received_transaction_id"
     t.string   "avs_result_code"
     t.string   "avs_result_message"
     t.string   "avs_result_street_match"

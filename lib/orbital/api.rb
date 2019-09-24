@@ -29,9 +29,8 @@ module Killbill #:nodoc:
       end
 
       def authorize_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
-        # Pass extra parameters for the gateway here
-        options = {}
-
+        options = {:mit_reference_trx_id => find_mit_ref_trx_id_if_needed(find_value_from_properties(properties, :mit_ref_trx_id),
+                                                                          context.tenant_id)}
         properties = merge_properties(properties, options)
         super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
       end
@@ -52,9 +51,8 @@ module Killbill #:nodoc:
       end
 
       def purchase_payment(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context)
-        # Pass extra parameters for the gateway here
-        options = {}
-
+        options = {:mit_reference_trx_id => find_mit_ref_trx_id_if_needed(find_value_from_properties(properties, :mit_ref_trx_id),
+                                                                          context.tenant_id)}
         properties = merge_properties(properties, options)
         super(kb_account_id, kb_payment_id, kb_payment_transaction_id, kb_payment_method_id, amount, currency, properties, context, with_trace_num_and_order_id(properties))
       end
@@ -164,40 +162,67 @@ module Killbill #:nodoc:
 
       def try_fix_undefined_trxs(plugin_trxs_info, options, context)
         stale = false
+        auth_order_id, authorization = find_auth_order_id_and_authorization(plugin_trxs_info)
         plugin_trxs_info.each do |plugin_trx_info|
           next unless should_try_to_fix_trx plugin_trx_info, options
-          stale = true if fix_undefined_trx plugin_trx_info, context, options
+          # Resort to auth order id for scenarios like MarkForCapture where Orbital Order Id is not persisted
+          # when remote call fails.
+          order_id = plugin_trx_info.second_payment_reference_id.nil? ? auth_order_id : plugin_trx_info.second_payment_reference_id
+          stale = true if fix_undefined_trx plugin_trx_info, order_id, authorization, context, options
         end
         stale
+      end
+
+      def find_auth_order_id_and_authorization(plugin_trxs_info)
+        auth_plugin_info = plugin_trxs_info.find { |info| info.transaction_type == :AUTHORIZE && !info.second_payment_reference_id.nil? }
+        if auth_plugin_info.nil?
+          return [nil, nil]
+        end
+        [auth_plugin_info.second_payment_reference_id,
+         find_value_from_properties(auth_plugin_info.properties, 'authorization')]
       end
 
       def should_try_to_fix_trx(plugin_trx_info, options)
         plugin_trx_info.status == :UNDEFINED && pass_delay_time(plugin_trx_info, options)
       end
 
-      def fix_undefined_trx(plugin_trx_info, context, options)
-        inquiry_response = inquiry(plugin_trx_info, context)
-        update_response_if_needed plugin_trx_info, inquiry_response, options
+      def fix_undefined_trx(plugin_trx_info, order_id, authorization, context, options)
+        payment_processor_account_id = find_value_from_properties(plugin_trx_info.properties, 'payment_processor_account_id')
+        trace_number = find_value_from_properties(plugin_trx_info.properties, 'trace_number')
+        return false if trace_number.nil? || order_id.nil? || payment_processor_account_id.nil?
+
+        gateway = lookup_gateway(payment_processor_account_id, context.tenant_id)
+        if plugin_trx_info.transaction_type == :CAPTURE
+          logger.info("Attempt to fix UNDEFINED capture for kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
+          response, amount, currency = retry_capture(plugin_trx_info, order_id, authorization, trace_number, context, gateway)
+          update_response_if_needed plugin_trx_info, order_id, response, options, amount, currency
+        else
+          logger.info("Attempt to query UNDEFINED transaction for kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
+          response = inquiry(order_id, trace_number, gateway)
+          update_response_if_needed plugin_trx_info, order_id, response, options
+        end
       end
 
-      def update_response_if_needed(plugin_trx_info, inquiry_response, options)
+      def update_response_if_needed(plugin_trx_info, order_id, inquiry_response, options, amount = nil, currency = nil)
         response_id = find_value_from_properties(plugin_trx_info.properties, 'orbital_response_id')
         response = OrbitalResponse.find_by(:id => response_id)
         updated = false
-        if should_update_response inquiry_response, plugin_trx_info
+        if should_update_response inquiry_response, order_id
           logger.info("Fixing UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}', success='#{inquiry_response.success?}'")
-          response.update_and_create_transaction(inquiry_response)
+          response.update_and_create_transaction(inquiry_response, amount, currency)
           updated = true
         elsif should_cancel_payment plugin_trx_info, options
           @logger.info("Canceling UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}'")
           response.cancel
           updated = true
+        else
+          @logger.info("Attempted to fix UNDEFINED kb_transaction_id='#{plugin_trx_info.kb_transaction_payment_id}' but unsuccessful")
         end
         updated
       end
 
-      def should_update_response(inquiry_response, plugin_trx_info)
-        !inquiry_response.nil? && !inquiry_response.params.nil? && inquiry_response.params['order_id'] == plugin_trx_info.second_payment_reference_id
+      def should_update_response(inquiry_response, order_id)
+        !inquiry_response.nil? && !inquiry_response.params.nil? && inquiry_response.params['order_id'] == order_id
       end
 
       def should_cancel_payment(plugin_trx_info, options)
@@ -219,15 +244,24 @@ module Killbill #:nodoc:
         Time.parse(@clock.get_clock.get_utc_now.to_s)
       end
 
-      def inquiry(plugin_trx_info, context)
-        payment_processor_account_id = find_value_from_properties(plugin_trx_info.properties, 'payment_processor_account_id')
-        trace_number = find_value_from_properties(plugin_trx_info.properties, 'trace_number')
-        orbital_order_id = plugin_trx_info.second_payment_reference_id
+      def inquiry(order_id, trace_number, gateway)
+        gateway.inquiry(order_id, trace_number)
+      end
 
-        return nil if trace_number.nil? || orbital_order_id.nil? || payment_processor_account_id.nil?
+      def retry_capture(plugin_trx_info, order_id, authorization, trace_number, context, gateway)
+        options = {:trace_number => trace_number, :order_id => order_id}
 
-        gateway = lookup_gateway(payment_processor_account_id, context.tenant_id)
-        gateway.inquiry(orbital_order_id, trace_number)
+        # Pass a cloned object of context to avoid being modified in get_payment via to_java
+        kb_payment = @kb_apis.payment_api.get_payment(plugin_trx_info.kb_payment_id, false, false, [], context.clone)
+        kb_transaction = kb_payment.transactions.detect {|trx| trx.id == plugin_trx_info.kb_transaction_payment_id}
+
+        amount = kb_transaction.amount
+        currency = kb_transaction.currency
+        return [gateway.capture(to_cents(amount, currency),
+                                authorization,
+                                options),
+                amount,
+                currency]
       end
 
       def with_trace_num_and_order_id(properties)
@@ -235,6 +269,10 @@ module Killbill #:nodoc:
          :params_order_id => find_value_from_properties(properties, :order_id)}.delete_if{|_, value| value.blank?}
       end
 
+      def find_mit_ref_trx_id_if_needed(ref_trx_id, tenant_id)
+        return nil if ref_trx_id.nil?
+        return @response_model.send('find_mit_transaction_ref_id', ref_trx_id, tenant_id)
+      end
     end
   end
 end

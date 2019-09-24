@@ -6,6 +6,8 @@ module Killbill #:nodoc:
 
       has_one :orbital_transaction
 
+      scope :succeeded, -> { where(:success => true) }
+
       def self.from_response(api_call, kb_account_id, kb_payment_id, kb_payment_transaction_id, transaction_type, payment_processor_account_id, kb_tenant_id, response, extra_params = {}, model = ::Killbill::Orbital::OrbitalResponse)
         super(api_call,
               kb_account_id,
@@ -77,6 +79,7 @@ module Killbill #:nodoc:
           :params_terminal_id => extract(response, 'terminal_id'),
           :params_tx_ref_idx => extract(response, 'tx_ref_idx'),
           :params_tx_ref_num => extract(response, 'tx_ref_num'),
+          :params_mit_received_transaction_id => extract(response, 'mit_received_transaction_id')
         }
       end
 
@@ -109,9 +112,9 @@ module Killbill #:nodoc:
         update!(updated_attributes)
       end
 
-      def update_and_create_transaction(gw_response)
+      def update_and_create_transaction(gw_response, amount = nil, currency = nil)
         updated_attributes = {
-            :message => gw_response.message,
+            :message => (gw_response.success? && gw_response.message.nil?) ? "" : gw_response.message,
             :authorization => gw_response.authorization,
             :fraud_review => gw_response.fraud_review?,
             :test => gw_response.test?,
@@ -126,15 +129,15 @@ module Killbill #:nodoc:
         }.merge(OrbitalResponse.orbital_response_params(gw_response))
 
         # Keep original values as much as possible
-        updated_attributes.delete_if { |k, v| v.blank? }
+        updated_attributes.delete_if { |k, v| v.blank? && k != :message}
 
         # Update the response row
         update!(updated_attributes)
 
         # Create the transaction row if needed (cannot have been created before or the state wouldn't have been UNDEFINED)
         if gw_response.success?
-          amount = gw_response.params['amount']
-          currency = gw_response.params['currency']
+          amount = amount.nil? ? gw_response.params['amount'] : amount
+          currency = currency.nil? ? gw_response.params['currency'] : currency
           amount_in_cents = amount.nil? ? nil : ::Monetize.from_numeric(amount.to_f, currency).cents.to_i
           build_orbital_transaction(:kb_account_id => kb_account_id,
                                     :kb_tenant_id => kb_tenant_id,
@@ -155,6 +158,13 @@ module Killbill #:nodoc:
         where(:kb_payment_id => kb_payment_id, :kb_tenant_id => kb_tenant_id, :api_call => 'authorize').order(:created_at)
       end
 
+      def self.find_mit_transaction_ref_id(kb_transaction_id, kb_tenant_id)
+        last_response = where(:kb_payment_transaction_id => kb_transaction_id, :kb_tenant_id => kb_tenant_id).order(:created_at).last
+        return nil if last_response.nil?
+
+        return last_response.params_mit_received_transaction_id
+      end
+
       def gateway_error_code
         params_resp_code
       end
@@ -164,7 +174,30 @@ module Killbill #:nodoc:
         t_info_plugin.properties << create_plugin_property('processorResponse', params_host_resp_code)
         t_info_plugin.properties << create_plugin_property('orbital_response_id', id)
         t_info_plugin.properties << create_plugin_property('trace_number', params_trace_number)
+        t_info_plugin.properties << create_plugin_property('mit_received_transaction_id', params_mit_received_transaction_id)
         t_info_plugin
+      end
+
+      def self.search_where_clause(t, search_key)
+        where_clause = super(t, search_key)
+        
+        search_fields = Killbill::Plugin::ActiveMerchant.glob_config[:search_fields]
+        if search_fields && search_fields.is_a?(Array)
+          where_clauses = search_fields.map { |search_field| t[search_field.to_sym].eq(search_key) }
+          where_clause = where_clauses.reduce(:or)
+        end
+
+        return where_clause
+      end
+
+      SIMPLE_PAGINATION_THRESHOLD = 20000
+
+      def self.max_nb_records
+        if self.succeeded.limit(1).offset(SIMPLE_PAGINATION_THRESHOLD).nil?
+          self.succeeded.count
+        else
+          SIMPLE_PAGINATION_THRESHOLD + 1
+        end
       end
     end
   end
